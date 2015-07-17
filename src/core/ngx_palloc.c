@@ -42,14 +42,14 @@ ngx_create_pool(size_t size, ngx_log_t *log)
     return p;
 }
 
-
+/* 销毁池 */
 void
 ngx_destroy_pool(ngx_pool_t *pool)
 {
     ngx_pool_t          *p, *n;
     ngx_pool_large_t    *l;
     ngx_pool_cleanup_t  *c;
-
+    /* 清理需要额外清理的资源 */
     for (c = pool->cleanup; c; c = c->next) {
         if (c->handler) {
             ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, pool->log, 0,
@@ -57,7 +57,7 @@ ngx_destroy_pool(ngx_pool_t *pool)
             c->handler(c->data);
         }
     }
-
+    /* 释放所有大内存块 */
     for (l = pool->large; l; l = l->next) {
 
         ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, pool->log, 0, "free: %p", l->alloc);
@@ -84,7 +84,7 @@ ngx_destroy_pool(ngx_pool_t *pool)
     }
 
 #endif
-
+    /* 释放所有预分配的内存块 */
     for (p = pool, n = pool->d.next; /* void */; p = n, n = n->d.next) {
         ngx_free(p);
 
@@ -94,7 +94,10 @@ ngx_destroy_pool(ngx_pool_t *pool)
     }
 }
 
-
+/*
+ * 释放内存池中所有大内存块
+ * 回收内存池中所有预分配的内存
+ */
 void
 ngx_reset_pool(ngx_pool_t *pool)
 {
@@ -119,10 +122,6 @@ ngx_reset_pool(ngx_pool_t *pool)
 
 /*
  * 从内存池pool中分配size大小的空间，返回空间地址
- * 1. szie 大于内存池能分配的最大值，分配空间并将信息填入pool->large
- * 2. pool->current 指向的 ngx_pool_data_t 有足够的空间，直接调整 d.last
- * 3. pool->current 指向的 ngx_pool_data_t 空间不够，沿着d.next往下查找直到最后一个
- * 4. 在过程3中没有找到合适的ngx_pool_data_t,则新分配一个 ngx_pool_data_t
  */
 void *
 ngx_palloc(ngx_pool_t *pool, size_t size)
@@ -136,7 +135,7 @@ ngx_palloc(ngx_pool_t *pool, size_t size)
 
         do {
             m = ngx_align_ptr(p->d.last, NGX_ALIGNMENT);
-
+            /* pool->current 维护的链表中找到有足够空间ngx_pool_data_t，就从 ngx_pool_data_t中分配*/
             if ((size_t) (p->d.end - m) >= size) {
                 p->d.last = m + size;
 
@@ -146,14 +145,16 @@ ngx_palloc(ngx_pool_t *pool, size_t size)
             p = p->d.next;
 
         } while (p);
-
+        /* 没有找到合适的ngx_pool_data_t,则新分配一个 ngx_pool_data_t */
         return ngx_palloc_block(pool, size);
     }
-
+    /* szie 大于内存池能分配的最大值，新分配空间并将信息填入pool->large */
     return ngx_palloc_large(pool, size);
 }
 
-
+/*
+* 从内存池pool中分配size大小的空间，返回空间地址
+*/
 void *
 ngx_pnalloc(ngx_pool_t *pool, size_t size)
 {
@@ -225,7 +226,7 @@ ngx_palloc_block(ngx_pool_t *pool, size_t size)
 }
 
 /*
- * 分配大小超过 NGX_MAX_ALLOC_FROM_POOL 的内存块
+ * 分配大内存块
  * 将分配的内存块连接到pool->large中
  */
 static void *
@@ -241,7 +242,7 @@ ngx_palloc_large(ngx_pool_t *pool, size_t size)
     }
 
     n = 0;
-
+    /* 在 pool->large 链表前三个节点中查找空闲节点，未找到则新分配一个节点插到链表头部 */
     for (large = pool->large; large; large = large->next) {
         if (large->alloc == NULL) {
             large->alloc = p;
@@ -266,7 +267,9 @@ ngx_palloc_large(ngx_pool_t *pool, size_t size)
     return p;
 }
 
-
+/*
+ * 分配按alignment对齐的大内存块，并新建一个ngx_pool_large_t 插入到pool->large链表的头部
+ */
 void *
 ngx_pmemalign(ngx_pool_t *pool, size_t size, size_t alignment)
 {
@@ -291,7 +294,9 @@ ngx_pmemalign(ngx_pool_t *pool, size_t size, size_t alignment)
     return p;
 }
 
-
+/*
+ * 释放大内存块p
+ */
 ngx_int_t
 ngx_pfree(ngx_pool_t *pool, void *p)
 {
@@ -311,7 +316,9 @@ ngx_pfree(ngx_pool_t *pool, void *p)
     return NGX_DECLINED;
 }
 
-
+/*
+ * 从内存池中分配size大小空间，并填0
+ */
 void *
 ngx_pcalloc(ngx_pool_t *pool, size_t size)
 {
@@ -325,7 +332,10 @@ ngx_pcalloc(ngx_pool_t *pool, size_t size)
     return p;
 }
 
-
+/*
+ * 新建一个ngx_pool_cleanup_t 节点并插入到pool->cleanup链表
+ * ngx_pool_cleanup_t->data指向从内存池中分配的size大小的空间
+ */
 ngx_pool_cleanup_t *
 ngx_pool_cleanup_add(ngx_pool_t *p, size_t size)
 {
@@ -356,7 +366,9 @@ ngx_pool_cleanup_add(ngx_pool_t *p, size_t size)
     return c;
 }
 
-
+/*
+ * 从内存池p->cleanup找到要清理的文件进行清理
+ */
 void
 ngx_pool_run_cleanup_file(ngx_pool_t *p, ngx_fd_t fd)
 {
@@ -377,7 +389,9 @@ ngx_pool_run_cleanup_file(ngx_pool_t *p, ngx_fd_t fd)
     }
 }
 
-
+/*
+ * 关闭文件
+ */
 void
 ngx_pool_cleanup_file(void *data)
 {
@@ -392,7 +406,9 @@ ngx_pool_cleanup_file(void *data)
     }
 }
 
-
+/*
+ * 删除文件
+ */
 void
 ngx_pool_delete_file(void *data)
 {

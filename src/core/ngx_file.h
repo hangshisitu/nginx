@@ -44,42 +44,50 @@ struct ngx_file_s {
 typedef time_t (*ngx_path_manager_pt) (void *data);
 typedef void (*ngx_path_loader_pt) (void *data);
 
-
+/*
+ * 解析配置文件中的路径的结构
+ * 其中len ,level字段规定了在该路径name下生成临时文件时
+ * 临时路径的产生算法
+ */
 typedef struct {
-    ngx_str_t                  name;
-    size_t                     len;
-    size_t                     level[3];
+    ngx_str_t                  name;                /* 路径名 */
+    size_t                     len;                 /* leavel规定的路径部分的长度 */
+    size_t                     level[3];            /* 临时文件的三级目录大小 生成临时路径的hash算法hash因子 */
 
     ngx_path_manager_pt        manager;
     ngx_path_loader_pt         loader;
     void                      *data;
 
-    u_char                    *conf_file;
-    ngx_uint_t                 line;
+    u_char                    *conf_file;           /* 该路径的来源的配置文件 */
+    ngx_uint_t                 line;                /* 该路径在来源的配置文件中的行数，主要用于记录日志，排查错误 */
 } ngx_path_t;
 
-
+/*
+ * 用来生成临时文件的初始对象
+ */
 typedef struct {
-    ngx_str_t                  name;
-    size_t                     level[3];
+    ngx_str_t                  name;               /* 临时路径的前缀字符 */
+    size_t                     level[3];           /* 临时目录的三级目录大小，生成临时路径的hash因子 */
 } ngx_path_init_t;
 
-
+/*
+ * 访问临时文件的结构
+ */
 typedef struct {
     ngx_file_t                 file;
-    off_t                      offset;
+    off_t                      offset;            /* 文件指针偏移 */
     ngx_path_t                *path;
     ngx_pool_t                *pool;
     char                      *warn;
 
-    ngx_uint_t                 access;
+    ngx_uint_t                 access;            /* 访问权限 */
 
     unsigned                   log_level:8;
-    unsigned                   persistent:1;
-    unsigned                   clean:1;
+    unsigned                   persistent:1;      /* 是否持久化 */
+    unsigned                   clean:1;           /* 清理方式 */
 } ngx_temp_file_t;
 
-
+/* ngx_ext_rename_file 使用的更改文件名的控制对象 */
 typedef struct {
     ngx_uint_t                 access;
     ngx_uint_t                 path_access;

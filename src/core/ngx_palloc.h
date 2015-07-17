@@ -30,48 +30,49 @@
 typedef void (*ngx_pool_cleanup_pt)(void *data);
 
 typedef struct ngx_pool_cleanup_s  ngx_pool_cleanup_t;
-
+/* 内存中有清理函数的内存块节点 */
 struct ngx_pool_cleanup_s {
-    ngx_pool_cleanup_pt   handler;
-    void                 *data;
-    ngx_pool_cleanup_t   *next;
+    ngx_pool_cleanup_pt   handler;      /* 内存块的清理函数 */
+    void                 *data;         /* 指向从内存池中分配的空间 */
+    ngx_pool_cleanup_t   *next;         /* 指向下一节点 */
 };
 
 
 typedef struct ngx_pool_large_s  ngx_pool_large_t;
 
 /*
- * 保存大小超过 NGX_MAX_ALLOC_FROM_POOL 的内存块的信息
+ * 内存池中大内存块节点
+ * 该节点维护的内存没有进行预分配而是在申请的时候分配的
  */
 struct ngx_pool_large_s {
-    ngx_pool_large_t     *next;              /* 指向内存池中的下一个 ngx_pool_large_s */
-    void                 *alloc;             /* 指向时间的内存空间 */
+    ngx_pool_large_t     *next;              /* 指向下一个节点 */
+    void                 *alloc;             /* 指向分配的内存空间 */
 };
 
-
+/* 内存池中预分配的内存节点 */
 typedef struct {
     u_char               *last;              /* 指向可用空间起始位置 */
     u_char               *end;               /* 指向可用空间结束位置 */
-    ngx_pool_t           *next;              /* 指向内存池中的下一个 ngx_pool_data_t */
+    ngx_pool_t           *next;              /* 指向下一个 ngx_pool_data_t 节点 */
     ngx_uint_t            failed;            /* 空间申请失败次数 */
 } ngx_pool_data_t;
 
 
 struct ngx_pool_s {
-    ngx_pool_data_t       d;
+    ngx_pool_data_t       d;                 /*  */
     size_t                max;               /* 内存池能分配的最大内存大小*/
-    ngx_pool_t           *current;           /* 维护一个 ngx_pool_data_t 的链表*/
+    ngx_pool_t           *current;           /* 指向 ngx_pool_data_t 链表中第一个失败计数没有超过3的节点*/
     ngx_chain_t          *chain;
     ngx_pool_large_t     *large;             /* 维护一个 ngx_pool_large_t 的链表 */
     ngx_pool_cleanup_t   *cleanup;           /* 指向可清理的内存块 */
     ngx_log_t            *log;               /* 日志对象 */
 };
 
-
+/* 内存池中清理文件结构 */
 typedef struct {
-    ngx_fd_t              fd;
-    u_char               *name;
-    ngx_log_t            *log;
+    ngx_fd_t              fd;                /* 文件描述符 */
+    u_char               *name;              /* 文件名 */
+    ngx_log_t            *log;               /* 日志对象 */
 } ngx_pool_cleanup_file_t;
 
 

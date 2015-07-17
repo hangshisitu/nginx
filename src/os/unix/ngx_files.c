@@ -363,7 +363,9 @@ ngx_write_chain_to_file(ngx_file_t *file, ngx_chain_t *cl, off_t offset,
     return total;
 }
 
-
+/*
+ * 修改文件访问时间
+ */
 ngx_int_t
 ngx_set_file_time(u_char *name, ngx_fd_t fd, time_t s)
 {

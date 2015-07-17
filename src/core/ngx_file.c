@@ -108,7 +108,9 @@ ngx_test_full_name(ngx_str_t *name)
 #endif
 }
 
-
+/*
+ * 把 chain 数据写入临时文件
+ */
 ssize_t
 ngx_write_chain_to_temp_file(ngx_temp_file_t *tf, ngx_chain_t *chain)
 {
@@ -131,7 +133,14 @@ ngx_write_chain_to_temp_file(ngx_temp_file_t *tf, ngx_chain_t *chain)
     return ngx_write_chain_to_file(&tf->file, chain, tf->offset, tf->pool);
 }
 
-
+/*
+ * 在path里创建并打开一个临时文件
+ * 并将文件添加到pool->clean中
+ * clean 指定了pool对该文件的清理方式关闭或删除
+ * 例如 path->name="fastcgi_temp",path->leave={1,2,0}
+ *      且ngx_next_temp_number(0)返回的是23456
+ *      则临时文件路径为"fastcgi_temp/6/45/0000023456"
+ */
 ngx_int_t
 ngx_create_temp_file(ngx_file_t *file, ngx_path_t *path, ngx_pool_t *pool,
     ngx_uint_t persistent, ngx_uint_t clean, ngx_uint_t access)
@@ -190,26 +199,28 @@ ngx_create_temp_file(ngx_file_t *file, ngx_path_t *path, ngx_pool_t *pool,
         }
 
         err = ngx_errno;
-
+        /* 该临时路径已存在，从新生成路径*/
         if (err == NGX_EEXIST) {
             n = (uint32_t) ngx_next_temp_number(1);
             continue;
         }
-
+        /* */
         if ((path->level[0] == 0) || (err != NGX_ENOPATH)) {
             ngx_log_error(NGX_LOG_CRIT, file->log, err,
                           ngx_open_tempfile_n " \"%s\" failed",
                           file->name.data);
             return NGX_ERROR;
         }
-
+        /* 创建file 的中间路径 */
         if (ngx_create_path(file, path) == NGX_ERROR) {
             return NGX_ERROR;
         }
     }
 }
 
-
+/*
+ * 生成临时路径的hash算法
+ */
 void
 ngx_create_hashed_filename(ngx_path_t *path, u_char *file, size_t len)
 {
@@ -234,7 +245,10 @@ ngx_create_hashed_filename(ngx_path_t *path, u_char *file, size_t len)
     }
 }
 
-
+/* 创建file临时路径中的中间子路径
+ * 例如 file->name = "fastcgi_temp/6/45/0000023456"
+ * 该函数创建 "fastcgi_temp/6","fastcgi_temp/6/45"
+ */
 ngx_int_t
 ngx_create_path(ngx_file_t *file, ngx_path_t *path)
 {
@@ -272,7 +286,9 @@ ngx_create_path(ngx_file_t *file, ngx_path_t *path)
     return NGX_OK;
 }
 
-
+/*
+ * 逐级创建dir目录
+ */
 ngx_err_t
 ngx_create_full_path(u_char *dir, ngx_uint_t access)
 {
@@ -332,7 +348,9 @@ ngx_next_temp_number(ngx_uint_t collision)
     return n + add;
 }
 
-
+/*
+ * 创建配置指令指定的临时文件路径并添加到cycle->paths中
+ */
 char *
 ngx_conf_set_path_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -392,7 +410,9 @@ ngx_conf_set_path_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 如果配置指令没有指定相应临时文件路径就是使用init中的默认值
+ */
 char *
 ngx_conf_merge_path_value(ngx_conf_t *cf, ngx_path_t **path, ngx_path_t *prev,
     ngx_path_init_t *init)
@@ -432,7 +452,9 @@ ngx_conf_merge_path_value(ngx_conf_t *cf, ngx_path_t **path, ngx_path_t *prev,
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 将配置指令指定的访问权限转存到配置结构中
+ */
 char *
 ngx_conf_set_access_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -494,7 +516,11 @@ invalid:
     return NGX_CONF_ERROR;
 }
 
-
+/*
+ * 遍历 cf->cycle->paths 是否存在 *slot指向的path
+ * 存在则修改*slot指向
+ * 不存在则添加
+ */
 ngx_int_t
 ngx_add_path(ngx_conf_t *cf, ngx_path_t **slot)
 {
@@ -567,7 +593,7 @@ ngx_add_path(ngx_conf_t *cf, ngx_path_t **slot)
 }
 
 /*
- * 创建目录，并且修改目录所有者为 user,修改user的权限
+ * 创建cycle->paths中的目录，并且修改目录所有者为 user,修改user的权限
  */
 ngx_int_t
 ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
@@ -701,7 +727,7 @@ ngx_ext_rename_file(ngx_str_t *src, ngx_str_t *to, ngx_ext_rename_file_t *ext)
     }
 
 #endif
-
+    /* 跨驱动器错误 */
     if (err == NGX_EXDEV) {
 
         cf.size = -1;
