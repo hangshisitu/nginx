@@ -658,7 +658,10 @@ ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
     return NGX_OK;
 }
 
-
+/*
+ * 改变文件路径
+ * ext提供额外控制
+ */
 ngx_int_t
 ngx_ext_rename_file(ngx_str_t *src, ngx_str_t *to, ngx_ext_rename_file_t *ext)
 {
@@ -793,7 +796,9 @@ failed:
     return NGX_ERROR;
 }
 
-
+/*
+ * 拷贝文件 cf 提供额外控制
+ */
 ngx_int_t
 ngx_copy_file(u_char *from, u_char *to, ngx_copy_file_t *cf)
 {
@@ -942,6 +947,7 @@ failed:
  * on fatal (memory) error handler must return NGX_ABORT to stop walking tree
  */
 
+/* */
 ngx_int_t
 ngx_walk_tree(ngx_tree_ctx_t *ctx, ngx_str_t *tree)
 {

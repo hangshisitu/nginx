@@ -100,13 +100,13 @@ typedef struct {
     ngx_log_t                 *log;
 } ngx_ext_rename_file_t;
 
-
+/* ngx_copy_file 使用的拷贝文件的控制对象 */
 typedef struct {
-    off_t                      size;
-    size_t                     buf_size;
+    off_t                      size;         /* 拷贝大小 */    
+    size_t                     buf_size;     /* 缓冲区大小 */
 
-    ngx_uint_t                 access;
-    time_t                     time;
+    ngx_uint_t                 access;       /* 目标文件的访问权限 */
+    time_t                     time;         /* 目标文件的访问时间戳 */
 
     ngx_log_t                 *log;
 } ngx_copy_file_t;
