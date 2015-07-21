@@ -73,6 +73,7 @@ struct ngx_cycle_s {
 	*      ngx_conf_open_file(ngx_cycyle_t *cycle, ngx_str_t *name)
 	* 可以返回名字为name的打开的文件描述符，如果对应的描述符不存在，则打开并存入open_files中。
 	* 比如：logs/error.log的文件描述符就在其中。
+    * 链表保存在ngx_init_cycle中要打开的文件
 	*/
     ngx_list_t                open_files;
 

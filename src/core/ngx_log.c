@@ -260,7 +260,9 @@ ngx_log_abort(ngx_err_t err, const char *fmt, ...)
                   "%*s", p - errstr, errstr);
 }
 
-
+/*
+ * 输出日志到 stderr
+ */
 void ngx_cdecl
 ngx_log_stderr(ngx_err_t err, const char *fmt, ...)
 {
@@ -319,7 +321,9 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
     return buf;
 }
 
-
+/*
+ * 初始化全局日志对象 ngx_log
+ */
 ngx_log_t *
 ngx_log_init(u_char *prefix)
 {
@@ -329,7 +333,7 @@ ngx_log_init(u_char *prefix)
     ngx_log.file = &ngx_log_file;
     ngx_log.log_level = NGX_LOG_NOTICE;
 
-    name = (u_char *) NGX_ERROR_LOG_PATH;
+    name = (u_char *)NGX_ERROR_LOG_PATH;       /* build时 configure 参数--error-log-path 指定的文件名 */
 
     /*
      * we use ngx_strlen() here since BCC warns about
@@ -337,7 +341,7 @@ ngx_log_init(u_char *prefix)
      */
 
     nlen = ngx_strlen(name);
-
+    /* 日志文件名为空，输出到stderr */
     if (nlen == 0) {
         ngx_log_file.fd = ngx_stderr;
         return &ngx_log;
@@ -356,7 +360,7 @@ ngx_log_init(u_char *prefix)
 
         } else {
 #ifdef NGX_PREFIX
-            prefix = (u_char *) NGX_PREFIX;
+            prefix = (u_char *) NGX_PREFIX;       /* build时 configure 参数--prefix 指定的路径 */
             plen = ngx_strlen(prefix);
 #else
             plen = 0;
@@ -405,7 +409,10 @@ ngx_log_init(u_char *prefix)
     return &ngx_log;
 }
 
-
+/*
+ * 如果 cycle->new_log链表中没有可用日志对象
+ * 分配一个日志对象打开默认日志文件插入到 cycle->new_log
+ */
 ngx_int_t
 ngx_log_open_default(ngx_cycle_t *cycle)
 {
@@ -468,7 +475,9 @@ ngx_log_redirect_stderr(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/*
+ * 返回head链表中第一个日志文件不为空的日志对象
+ */
 ngx_log_t *
 ngx_log_get_file_log(ngx_log_t *head)
 {
@@ -546,7 +555,7 @@ ngx_log_set_levels(ngx_conf_t *cf, ngx_log_t *log)
     return NGX_CONF_OK;
 }
 
-
+/* error_log 配置指令转存到配置结构 */
 static char *
 ngx_error_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -557,7 +566,7 @@ ngx_error_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return ngx_log_set_log(cf, &dummy);
 }
 
-
+/* 日志配置转存 */
 char *
 ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
 {
@@ -681,7 +690,9 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 将new_log插入到log链表，按log_level降序排列
+ */
 static void
 ngx_log_insert(ngx_log_t *log, ngx_log_t *new_log)
 {
