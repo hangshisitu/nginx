@@ -2,6 +2,7 @@
 /*
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
+ * 可自旋等待的锁
  */
 
 
@@ -12,7 +13,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+/* 锁使用的原子操作变量 */
 typedef struct {
     ngx_atomic_t   lock;
 #if (NGX_HAVE_POSIX_SEM)
@@ -25,15 +26,15 @@ typedef struct {
 #if (NGX_HAVE_ATOMIC_OPS)
     ngx_atomic_t  *lock;
 #if (NGX_HAVE_POSIX_SEM)
-    ngx_atomic_t  *wait;
-    ngx_uint_t     semaphore;
-    sem_t          sem;
+    ngx_atomic_t  *wait;            /* 等待计数 信号量启用时使用 */
+    ngx_uint_t     semaphore;       /* 标记是否启用了信号量 */
+    sem_t          sem;             /* 信号量 */
 #endif
 #else
     ngx_fd_t       fd;
     u_char        *name;
 #endif
-    ngx_uint_t     spin;
+    ngx_uint_t     spin;            /* 自旋等待次数 */
 } ngx_shmtx_t;
 
 

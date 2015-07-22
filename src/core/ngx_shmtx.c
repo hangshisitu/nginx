@@ -14,7 +14,9 @@
 
 static void ngx_shmtx_wakeup(ngx_shmtx_t *mtx);
 
-
+/* 创建共享内存锁 
+ * addr指向共享内存空间
+ */
 ngx_int_t
 ngx_shmtx_create(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, u_char *name)
 {
@@ -42,7 +44,9 @@ ngx_shmtx_create(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, u_char *name)
     return NGX_OK;
 }
 
-
+/*
+ * 销毁信号量
+ */
 void
 ngx_shmtx_destroy(ngx_shmtx_t *mtx)
 {
@@ -58,14 +62,18 @@ ngx_shmtx_destroy(ngx_shmtx_t *mtx)
 #endif
 }
 
-
+/* 尝试锁，加锁成功返回true
+ * 并将进程id写入mtx->lock既共享内存的首的四字节
+ */
 ngx_uint_t
 ngx_shmtx_trylock(ngx_shmtx_t *mtx)
 {
     return (*mtx->lock == 0 && ngx_atomic_cmp_set(mtx->lock, 0, ngx_pid));
 }
 
-
+/*
+ * 加锁（自旋等待）
+ */
 void
 ngx_shmtx_lock(ngx_shmtx_t *mtx)
 {
@@ -78,13 +86,13 @@ ngx_shmtx_lock(ngx_shmtx_t *mtx)
         if (*mtx->lock == 0 && ngx_atomic_cmp_set(mtx->lock, 0, ngx_pid)) {
             return;
         }
-
+        /* 有多个cpu */
         if (ngx_ncpu > 1) {
 
             for (n = 1; n < mtx->spin; n <<= 1) {
 
                 for (i = 0; i < n; i++) {
-                    ngx_cpu_pause();
+                    ngx_cpu_pause();            /* 提升自旋循环等待性能，只对intel x86和amd64 处理器有效 */
                 }
 
                 if (*mtx->lock == 0
@@ -107,7 +115,7 @@ ngx_shmtx_lock(ngx_shmtx_t *mtx)
 
             ngx_log_debug1(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0,
                            "shmtx wait %uA", *mtx->wait);
-
+            /* 等待信号到来，进行下一次自旋等待 */
             while (sem_wait(&mtx->sem) == -1) {
                 ngx_err_t  err;
 
@@ -128,11 +136,13 @@ ngx_shmtx_lock(ngx_shmtx_t *mtx)
 
 #endif
 
-        ngx_sched_yield();
+        ngx_sched_yield();     /* 进程放弃时间片 */
     }
 }
 
-
+/*
+ * 解锁并发送信号量
+ */
 void
 ngx_shmtx_unlock(ngx_shmtx_t *mtx)
 {
@@ -160,7 +170,7 @@ ngx_shmtx_force_unlock(ngx_shmtx_t *mtx, ngx_pid_t pid)
     return 0;
 }
 
-
+/* 发送信号唤醒一个线程 */
 static void
 ngx_shmtx_wakeup(ngx_shmtx_t *mtx)
 {
@@ -174,11 +184,11 @@ ngx_shmtx_wakeup(ngx_shmtx_t *mtx)
     for ( ;; ) {
 
         wait = *mtx->wait;
-
+        /* 没有进程等待信号，所以无需发送信号 */
         if ((ngx_atomic_int_t) wait <= 0) {
             return;
         }
-
+        /* 等待计数减一*/
         if (ngx_atomic_cmp_set(mtx->wait, wait, wait - 1)) {
             break;
         }
@@ -198,7 +208,9 @@ ngx_shmtx_wakeup(ngx_shmtx_t *mtx)
 
 #else
 
-
+/*
+ * 编译器不支持原子操作，使用文件锁实现
+ */
 ngx_int_t
 ngx_shmtx_create(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, u_char *name)
 {

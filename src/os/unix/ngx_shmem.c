@@ -10,7 +10,9 @@
 
 
 #if (NGX_HAVE_MAP_ANON)
-
+/*
+ * 创建可读写的匿名共享内存
+ */
 ngx_int_t
 ngx_shm_alloc(ngx_shm_t *shm)
 {
@@ -27,7 +29,9 @@ ngx_shm_alloc(ngx_shm_t *shm)
     return NGX_OK;
 }
 
-
+/*
+ * 解除共享内存映射
+ */
 void
 ngx_shm_free(ngx_shm_t *shm)
 {

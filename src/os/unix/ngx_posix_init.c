@@ -10,7 +10,7 @@
 #include <nginx.h>
 
 
-ngx_int_t   ngx_ncpu;
+ngx_int_t   ngx_ncpu;                               /* 系统可用CPU核数 */
 ngx_int_t   ngx_max_sockets;                        /* 进程能打开的套接字个数的上限 */
 ngx_uint_t  ngx_inherited_nonblocking;
 ngx_uint_t  ngx_tcp_nodelay_and_tcp_nopush;

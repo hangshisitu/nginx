@@ -52,15 +52,15 @@ struct ngx_log_s {
     ngx_uint_t           log_level;                 /* 日志级别 */
     ngx_open_file_t     *file;                      /* 日志文件 */
 
-    ngx_atomic_uint_t    connection;
+    ngx_atomic_uint_t    connection;                /* 引用该日志对象的连接数 */
 
     time_t               disk_full_time;
 
-    ngx_log_handler_pt   handler;
+    ngx_log_handler_pt   handler;                   /* 写日志时的回调函数，日志级别不为DEBUG时有效 */
     void                *data;
 
-    ngx_log_writer_pt    writer;
-    void                *wdata;
+    ngx_log_writer_pt    writer;                    /* 指向写日志的函数 ngx_syslog_writer */
+    void                *wdata;                     /* 指向ngx_syslog_peer_t类型对象 */
 
     /*
      * we declare "action" as "char *" because the actions are usually

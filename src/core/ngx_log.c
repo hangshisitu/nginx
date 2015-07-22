@@ -163,13 +163,13 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
 
     wrote_stderr = 0;
     debug_connection = (log->log_level & NGX_LOG_DEBUG_CONNECTION) != 0;
-
+    /* 遍历日志对象链表 */
     while (log) {
-
+        /* 忽略日志级别低于leave的日志对象 */
         if (log->log_level < level && !debug_connection) {
             break;
         }
-
+        /* 如果日志对象有指定的输出函数就是该函数 */
         if (log->writer) {
             log->writer(log, level, errstr, p - errstr);
             goto next;
@@ -191,7 +191,7 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
         if (n == -1 && ngx_errno == NGX_ENOSPC) {
             log->disk_full_time = ngx_time();
         }
-
+        /* 设置已写stderr的标志 */
         if (log->file->fd == ngx_stderr) {
             wrote_stderr = 1;
         }
@@ -261,7 +261,7 @@ ngx_log_abort(ngx_err_t err, const char *fmt, ...)
 }
 
 /*
- * 输出日志到 stderr
+ * 将错误码err的提示信息输出到 stderr
  */
 void ngx_cdecl
 ngx_log_stderr(ngx_err_t err, const char *fmt, ...)
@@ -291,7 +291,7 @@ ngx_log_stderr(ngx_err_t err, const char *fmt, ...)
     (void) ngx_write_console(ngx_stderr, errstr, p - errstr);
 }
 
-
+/* 将错误码err的错误信息格式化到buf中 */
 u_char *
 ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
 {
@@ -450,7 +450,7 @@ ngx_log_open_default(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/* 将日志输出重定向到stderr */
 ngx_int_t
 ngx_log_redirect_stderr(ngx_cycle_t *cycle)
 {
@@ -492,7 +492,7 @@ ngx_log_get_file_log(ngx_log_t *head)
     return NULL;
 }
 
-
+/* 转存配置指令中的日志级别 */
 static char *
 ngx_log_set_levels(ngx_conf_t *cf, ngx_log_t *log)
 {
@@ -566,14 +566,14 @@ ngx_error_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return ngx_log_set_log(cf, &dummy);
 }
 
-/* 日志配置转存 */
+/* 日志配置指令转存 */
 char *
 ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
 {
     ngx_log_t          *new_log;
     ngx_str_t          *value, name;
     ngx_syslog_peer_t  *peer;
-
+    /* 头节点可用就直接设置头节点，不可用就新建一个节点 */
     if (*head != NULL && (*head)->log_level == 0) {
         new_log = *head;
 
@@ -590,7 +590,7 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
     }
 
     value = cf->args->elts;
-
+    /* 配置指令指定日志输出到stderr */
     if (ngx_strcmp(value[1].data, "stderr") == 0) {
         ngx_str_null(&name);
         cf->cycle->log_use_stderr = 1;
@@ -599,7 +599,7 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
         if (new_log->file == NULL) {
             return NGX_CONF_ERROR;
         }
-
+        /* 用于调试的  */
      } else if (ngx_strncmp(value[1].data, "memory:", 7) == 0) {
 
 #if (NGX_DEBUG)
@@ -658,7 +658,7 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
                            "nginx was built without debug support");
         return NGX_CONF_ERROR;
 #endif
-
+        /* 日志输出到 syslog */
      } else if (ngx_strncmp(value[1].data, "syslog:", 7) == 0) {
         peer = ngx_pcalloc(cf->pool, sizeof(ngx_syslog_peer_t));
         if (peer == NULL) {
@@ -671,7 +671,7 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
 
         new_log->writer = ngx_syslog_writer;
         new_log->wdata = peer;
-
+        /* 日志输出到指定文件 */
     } else {
         new_log->file = ngx_conf_open_file(cf->cycle, &value[1]);
         if (new_log->file == NULL) {
@@ -682,7 +682,7 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
     if (ngx_log_set_levels(cf, new_log) != NGX_CONF_OK) {
         return NGX_CONF_ERROR;
     }
-
+    /* 新建的 log节点插入链表 */
     if (*head != new_log) {
         ngx_log_insert(*head, new_log);
     }

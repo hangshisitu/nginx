@@ -522,7 +522,9 @@ ngx_close_glob(ngx_glob_t *gl)
     globfree(&gl->pglob);
 }
 
-
+/*
+ * 尝试给fd文件加排它锁
+ */
 ngx_err_t
 ngx_trylock_fd(ngx_fd_t fd)
 {
@@ -539,7 +541,9 @@ ngx_trylock_fd(ngx_fd_t fd)
     return 0;
 }
 
-
+/*
+ * 给fd文件加排它锁
+ */
 ngx_err_t
 ngx_lock_fd(ngx_fd_t fd)
 {
@@ -556,7 +560,9 @@ ngx_lock_fd(ngx_fd_t fd)
     return 0;
 }
 
-
+/*
+ * fd 文件加锁
+ */
 ngx_err_t
 ngx_unlock_fd(ngx_fd_t fd)
 {
