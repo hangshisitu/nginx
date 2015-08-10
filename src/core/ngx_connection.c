@@ -15,7 +15,9 @@ ngx_os_io_t  ngx_io;
 
 static void ngx_drain_connections(void);
 
-
+/*
+ * 创建 ngx_listening_t 结构体添加到cycle的监听队列中
+ */
 ngx_listening_t *
 ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
 {
@@ -23,7 +25,8 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
     ngx_listening_t  *ls;
     struct sockaddr  *sa;
     u_char            text[NGX_SOCKADDR_STRLEN];
-
+    
+    /* 将sockaddr地址添加到 cycle中的监听队列 */
     ls = ngx_array_push(&cf->cycle->listening);
     if (ls == NULL) {
         return NULL;
@@ -89,7 +92,9 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
     return ls;
 }
 
-
+/*
+ * 将现有ls拷贝 worker_processes 个并添加到cycle的监听队列
+ */
 ngx_int_t
 ngx_clone_listening(ngx_conf_t *cf, ngx_listening_t *ls)
 {
@@ -362,7 +367,9 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/*
+ * 为cycle的监听队列里的地址创建socket并绑定监听
+ */
 ngx_int_t
 ngx_open_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -403,7 +410,9 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                  * to multiple sockets with SO_REUSEPORT, we have to set
                  * SO_REUSEPORT on the old socket before opening new ones
                  */
-
+                /* 为了从没有SO_REUSEPORT属性的socket转换为多个具有SO_REUSEPORT属性的
+                 * socket,需要在打开新的socket之前，给原有socket设置SO_REUSEPORT属性
+                 */
                 int  reuseport = 1;
 
                 if (setsockopt(ls[i].fd, SOL_SOCKET, SO_REUSEPORT,
@@ -418,11 +427,11 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 ls[i].add_reuseport = 0;
             }
 #endif
-
+            /* 忽略已创建了地址 */
             if (ls[i].fd != (ngx_socket_t) -1) {
                 continue;
             }
-
+            /* 忽略从父进程继承来的socket */
             if (ls[i].inherited) {
 
                 /* TODO: close on exit */
@@ -431,7 +440,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 
                 continue;
             }
-
+            /* 创建socket */
             s = ngx_socket(ls[i].sockaddr->sa_family, ls[i].type, 0);
 
             if (s == (ngx_socket_t) -1) {
