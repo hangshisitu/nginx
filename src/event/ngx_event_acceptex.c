@@ -12,7 +12,6 @@
 
 static void ngx_close_posted_connection(ngx_connection_t *c);
 
-
 void
 ngx_event_acceptex(ngx_event_t *rev)
 {

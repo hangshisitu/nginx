@@ -17,6 +17,9 @@ static void ngx_drain_connections(void);
 
 /*
  * 创建 ngx_listening_t 结构体添加到cycle的监听队列中
+ * 创 建一个ngx_listening_t结构，这个函数在ngx_init_cycle解析http的
+ * server配置项的时候会调用，它创建一个 ngx_listening_t结构变量（存于cycle->listening数组中），
+ * 并设置其地址和一些基本的信息，比如backlog等
  */
 ngx_listening_t *
 ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
@@ -133,6 +136,11 @@ ngx_clone_listening(ngx_conf_t *cf, ngx_listening_t *ls)
 
 /*
  * @brief 设置继承的sockets相关信息
+ * nginx 启动的时候会尝试从环境变量中读取前次执行时候的监听套接口的id，
+ * 并会创建对应数量的ngx_listening_t结构变量（存于 cycle->listening数组中），
+ * 然后调用这个接口通过getsockname,getsockopt等系统调用把原来套接口的属性信息
+ * 和设置参数读取出来去设置那些新创建的ngx_listening_t结构变量，这样
+ * 就继承了前次执行时候的监听套接口了，这个接口是在 ngx_init_cycle之前调用的
  */
 ngx_int_t
 ngx_set_inherited_sockets(ngx_cycle_t *cycle)
@@ -369,6 +377,10 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
 /*
  * 为cycle的监听队列里的地址创建socket并绑定监听
+ * ngx_init_cycle 在解析完配置文件之后，会调用这个接口打开
+ * cycle->listening数组中的所有监听套接口，其实就是顺序调用
+ * socket、 setsockopt、bind、listen几个系统调用，如果事件
+ * 驱动不是利用异步IO模型，还会把这些监听套接口设置为非阻塞方式
  */
 ngx_int_t
 ngx_open_listening_sockets(ngx_cycle_t *cycle)
@@ -617,7 +629,10 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/* 
+ * ngx_init_cycle中紧接着ngx_open_listening_sockets接口之后调用
+ * 这个接口利用setsockopt系统调用配置这些监听套接口
+ */
 void
 ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -864,7 +879,11 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
     return;
 }
 
-
+/*
+ * worker进程会继承master中设置好的这些监听套接口，当worker进程
+ * 退出的时候，会调用这个接口关闭监听套接口，关闭之前会删除与其
+ * 关联的连接上的读事件并释放这个连接资源
+ */
 void
 ngx_close_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -936,7 +955,10 @@ ngx_close_listening_sockets(ngx_cycle_t *cycle)
     cycle->listening.nelts = 0;
 }
 
-
+/*
+ * 从cycle->connections链表中摘取一个空闲的连接结构变量
+ * 并修改空闲链，然后设置连接资源的读写事件的初始状态信息
+ */
 ngx_connection_t *
 ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
 {
@@ -1005,7 +1027,9 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
     return c;
 }
 
-
+/*
+ * 释放连接资源，把连接资源放回空闲连接链表中
+ */
 void
 ngx_free_connection(ngx_connection_t *c)
 {
@@ -1018,7 +1042,10 @@ ngx_free_connection(ngx_connection_t *c)
     }
 }
 
-
+/*
+ * 关闭连接，首先清理连接上的读写事件，这可能会删除定时
+ * 器、删除等待事件，然后释放连接资源，并关闭连接对应的套接口
+ */
 void
 ngx_close_connection(ngx_connection_t *c)
 {

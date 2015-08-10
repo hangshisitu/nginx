@@ -55,7 +55,7 @@ struct ngx_cycle_s {
 
     ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */
 
-    ngx_connection_t        **files;                    // 链接文件
+    ngx_connection_t        **files;                    // 连接对象数组
     ngx_connection_t         *free_connections;         // 空闲链接数组
     ngx_uint_t                free_connection_n;        // 空闲链接个数
 

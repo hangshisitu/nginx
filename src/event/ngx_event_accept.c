@@ -14,7 +14,9 @@ static ngx_int_t ngx_enable_accept_events(ngx_cycle_t *cycle);
 static ngx_int_t ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all);
 static void ngx_close_accepted_connection(ngx_connection_t *c);
 
-
+/*
+ * 监听连接的可读事件处理函数
+ */
 void
 ngx_event_accept(ngx_event_t *ev)
 {

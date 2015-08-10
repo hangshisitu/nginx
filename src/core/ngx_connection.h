@@ -49,7 +49,7 @@ struct ngx_listening_s {
     ngx_msec_t          post_accept_timeout;       /* accept的超时时间 */
 
     ngx_listening_t    *previous;                  /* 前一个ngx_listening_t结构，维护一个链表 */
-    ngx_connection_t   *connection;                /* 当前监听socket对应的ngx_connection_t结构体 */
+    ngx_connection_t   *connection;                /* 监听也是一个连接，要分配给监听一个连接资源 */
 
     ngx_uint_t          worker;                    /* 计数 */
 
@@ -122,18 +122,18 @@ typedef enum {
 
 
 struct ngx_connection_s {
-    void               *data;
-    ngx_event_t        *read;
-    ngx_event_t        *write;
+    void               *data;                /* 维护一个ngx_connection_s的链表 */
+    ngx_event_t        *read;                /* 读事件 */
+    ngx_event_t        *write;               /* 写事件 */
 
-    ngx_socket_t        fd;
+    ngx_socket_t        fd;                  /* 连接套接字 */
 
-    ngx_recv_pt         recv;
-    ngx_send_pt         send;
-    ngx_recv_chain_pt   recv_chain;
-    ngx_send_chain_pt   send_chain;
+    ngx_recv_pt         recv;                /* 读函数 */
+    ngx_send_pt         send;                /* 写函数 */
+    ngx_recv_chain_pt   recv_chain;          /* 批量读函数 */
+    ngx_send_chain_pt   send_chain;          /* 批量写函数 */
 
-    ngx_listening_t    *listening;
+    ngx_listening_t    *listening;           /* 该连接对应的监听 */
 
     off_t               sent;
 

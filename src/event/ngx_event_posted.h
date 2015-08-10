@@ -13,7 +13,9 @@
 #include <ngx_core.h>
 #include <ngx_event.h>
 
-
+/*
+ * 将ev->queue插入到q的队尾
+ */
 #define ngx_post_event(ev, q)                                                 \
                                                                               \
     if (!(ev)->posted) {                                                      \

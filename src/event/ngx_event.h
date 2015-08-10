@@ -28,11 +28,11 @@ typedef struct {
 
 
 struct ngx_event_s {
-    void            *data;
+    void            *data;                 /* 事件对应的连接 ngx_connection */
 
     unsigned         write:1;
 
-    unsigned         accept:1;
+    unsigned         accept : 1;            /* 标记 data指向的是监听连接还是数据连接*/
 
     /* used to detect the stale events in kqueue and epoll */
     unsigned         instance:1;
@@ -108,7 +108,7 @@ struct ngx_event_s {
     unsigned         available:1;
 #endif
 
-    ngx_event_handler_pt  handler;
+    ngx_event_handler_pt  handler;                /* 事件处理函数 */
 
 
 #if (NGX_HAVE_IOCP)
@@ -122,7 +122,7 @@ struct ngx_event_s {
     ngx_rbtree_node_t   timer;
 
     /* the posted queue */
-    ngx_queue_t      queue;
+    ngx_queue_t      queue;                       /* 发送队列 */
 
 #if 0
 

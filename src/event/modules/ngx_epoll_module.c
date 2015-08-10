@@ -93,7 +93,7 @@ struct io_event {
 #endif
 #endif /* NGX_TEST_BUILD_EPOLL */
 
-
+/* epoll 的配置结构 */
 typedef struct {
     ngx_uint_t  events;
     ngx_uint_t  aio_requests;
@@ -126,14 +126,14 @@ static void ngx_epoll_eventfd_handler(ngx_event_t *ev);
 static void *ngx_epoll_create_conf(ngx_cycle_t *cycle);
 static char *ngx_epoll_init_conf(ngx_cycle_t *cycle, void *conf);
 
-static int                  ep = -1;
-static struct epoll_event  *event_list;
-static ngx_uint_t           nevents;
+static int                  ep = -1;                   /* epoll文件描述符 */
+static struct epoll_event  *event_list;                /* 事件数组 */
+static ngx_uint_t           nevents;                   /* 事件个数 */
 
 #if (NGX_HAVE_EVENTFD)
-static int                  notify_fd = -1;
-static ngx_event_t          notify_event;
-static ngx_connection_t     notify_conn;
+static int                  notify_fd = -1;            /* eventfd */
+static ngx_event_t          notify_event;              /* notify事件 */
+static ngx_connection_t     notify_conn;               /* notify连接对象 */
 #endif
 
 #if (NGX_HAVE_FILE_AIO)
@@ -167,7 +167,7 @@ static ngx_command_t  ngx_epoll_commands[] = {
       ngx_null_command
 };
 
-
+/* epoll模块配置上下文 */
 ngx_event_module_t  ngx_epoll_module_ctx = {
     &epoll_name,
     ngx_epoll_create_conf,               /* create configuration */
@@ -310,7 +310,11 @@ failed:
 
 #endif
 
-
+/*
+ * 创建一个epoll句柄ep，指定在其上的监控套接字数量为每个worker最
+ * 大连接数的一半，并分配足够的epoll_event结构数组event_list用于
+ * 与内核间传递事件，数量nevents可以配置文件指定，默认为512
+ */
 static ngx_int_t
 ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 {
@@ -371,7 +375,9 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 
 
 #if (NGX_HAVE_EVENTFD)
-
+/*
+ * 创建notify_fd，并将其可读事件添加到ep
+ */
 static ngx_int_t
 ngx_epoll_notify_init(ngx_log_t *log)
 {
@@ -417,7 +423,9 @@ ngx_epoll_notify_init(ngx_log_t *log)
     return NGX_OK;
 }
 
-
+/*
+ * notify_fd事件的处理函数
+ */
 static void
 ngx_epoll_notify_handler(ngx_event_t *ev)
 {
@@ -497,7 +505,12 @@ ngx_epoll_done(ngx_cycle_t *cycle)
     nevents = 0;
 }
 
-
+/*
+ * add 和enable钩子，调用epoll_ctl(ep, EPOLL_CTL_MOD/EPOLL_CTL_ADD, c->fd, &ee)添加
+ * 对连接套接口的读事件或者写事件监控，并且设置事件的状态位：ev->action = 1，当添加
+ * 读事件的时候会判断写事件是否已经设置（wev->action=1?），从而决定op是否使
+ * 用EPOLL_CTL_MOD，添加写事件 也要判断读事件的状态
+ */
 static ngx_int_t
 ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 {
@@ -510,7 +523,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     c = ev->data;
 
     events = (uint32_t) event;
-
+    /* 添加读事件需要判断*/
     if (event == NGX_READ_EVENT) {
         e = c->write;
         prev = EPOLLOUT;
@@ -525,7 +538,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
         events = EPOLLOUT;
 #endif
     }
-
+    /* 事件对应连接已注册过，修改事件，反之添加事件 */
     if (e->active) {
         op = EPOLL_CTL_MOD;
         events |= prev;
@@ -555,7 +568,11 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     return NGX_OK;
 }
 
-
+/*
+ * del 和disable钩子，调用epoll_ctl(ep, EPOLL_CTL_MOD/EPOLL_CTL_DEL, c->fd, &ee)删除
+ * 对连接套接口的读事件或者写事件的监控，并且设置事件的状态位：ev->action = 0，当删除
+ * 读事件的时候会判断写事件是否已经设置（wev->action=1?），从而决定op是否使用EPOLL_CTL_MOD，删除写事件 也要判断读事件的状态
+ */
 static ngx_int_t
 ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 {
@@ -613,7 +630,10 @@ ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     return NGX_OK;
 }
 
-
+/*
+ * add_conn钩子，调用epoll_ctl(ep, EPOLL_CTL_ADD, c->fd, &ee)同时
+ * 添加对一条连接的读写事件的监控，并设置其读写事件的状态active = 1
+ */
 static ngx_int_t
 ngx_epoll_add_connection(ngx_connection_t *c)
 {
@@ -637,7 +657,10 @@ ngx_epoll_add_connection(ngx_connection_t *c)
     return NGX_OK;
 }
 
-
+/*
+ * del_conn钩子，调用epoll_ctl(ep, EPOLL_CTL_DEL, c->fd, &ee)同时
+ * 删除对一条连接的读写事件的监控，并设置其读写事件的状态active = 0
+ */
 static ngx_int_t
 ngx_epoll_del_connection(ngx_connection_t *c, ngx_uint_t flags)
 {
@@ -678,6 +701,9 @@ ngx_epoll_del_connection(ngx_connection_t *c, ngx_uint_t flags)
 
 #if (NGX_HAVE_EVENTFD)
 
+/*
+ * 触发 notify_fd的可读事件
+ */
 static ngx_int_t
 ngx_epoll_notify(ngx_event_handler_pt handler)
 {
@@ -696,7 +722,14 @@ ngx_epoll_notify(ngx_event_handler_pt handler)
 
 #endif
 
-
+/*
+ * process_events 钩子，调用events = epoll_wait(ep, event_list, (int) nevents, timer)轮询
+ * 事件，超时值为timer，事件存放于event_list数组中，最大数量为nevents。对于发生的读
+ * 事件，若flags中置位了 NGX_POST_EVENTS，再根据被监控的套接口是监听套接口还是数据套接口
+ * 决定暂时投递到事件队列 ngx_posted_accept_events还是ngx_posted_events等待进程处理，否则就
+ * 直接调用事件处理函数 rev->handler处理事件；对于发生的写事件，若flags置位了NGX_POST_EVENTS，投递
+ * 到事件队列 ngx_posted_events等待处理，否则就直接调用事件处理函数wev->handler处理事件
+ */
 static ngx_int_t
 ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 {
@@ -754,7 +787,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         c = event_list[i].data.ptr;
 
         instance = (uintptr_t) c & 1;
-        c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
+        c = (ngx_connection_t *)((uintptr_t)c & (uintptr_t)~1);  /* c的第0位应该为0，地址都是2的整数倍*/
 
         rev = c->read;
 
