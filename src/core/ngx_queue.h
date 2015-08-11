@@ -12,9 +12,9 @@
 #ifndef _NGX_QUEUE_H_INCLUDED_
 #define _NGX_QUEUE_H_INCLUDED_
 
-
 typedef struct ngx_queue_s  ngx_queue_t;
 
+/* 队列节点结构体 */
 struct ngx_queue_s {
     ngx_queue_t  *prev;
     ngx_queue_t  *next;
@@ -76,7 +76,9 @@ struct ngx_queue_s {
     (x)->next = NULL
 
 #else
-
+/*
+ * 将x节点从所在队列中移除 
+ */
 #define ngx_queue_remove(x)                                                   \
     (x)->next->prev = (x)->prev;                                              \
     (x)->prev->next = (x)->next
@@ -104,12 +106,16 @@ struct ngx_queue_s {
     (h)->prev = (n)->prev;                                                    \
     (h)->prev->next = h;
 
-
+/* 
+ * 获取队列中节点数据， q是队列中的节点，type队列类型，link是队列类型中ngx_queue_t的元素名
+ * 在入队时，将其link字段的指针入队
+ * 该宏根据type,link计算出数据地址
+ */
 #define ngx_queue_data(q, type, link)                                         \
     (type *) ((u_char *) q - offsetof(type, link))
 
 /*
- *使用双倍步进算法寻找queue队列的中间结点
+ * 使用双倍步进算法寻找queue队列的中间结点
  */
 ngx_queue_t *ngx_queue_middle(ngx_queue_t *queue);
 

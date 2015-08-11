@@ -10,10 +10,13 @@
 #include <ngx_event.h>
 
 
-ngx_queue_t  ngx_posted_accept_events;   /* 待处理监听事件队列*/
-ngx_queue_t  ngx_posted_events;          /* 待处理数据事件队列*/
+ngx_queue_t  ngx_posted_accept_events;   /* 待处理监听连接的事件队列*/
+ngx_queue_t  ngx_posted_events;          /* 待处理数据连接的事件队列*/
 
-
+/*
+ * 处理posted事件队列中的事件
+ * 并将事件从队列中移除
+ */
 void
 ngx_event_process_posted(ngx_cycle_t *cycle, ngx_queue_t *posted)
 {

@@ -122,7 +122,7 @@ struct ngx_event_s {
     ngx_rbtree_node_t   timer;
 
     /* the posted queue */
-    ngx_queue_t      queue;                       /* 发送队列 */
+    ngx_queue_t      queue;                       /* 入队列的节点 */
 
 #if 0
 
@@ -174,7 +174,9 @@ struct ngx_event_aio_s {
 
 #endif
 
-
+/*
+ * 事件操作接口
+ */
 typedef struct {
     ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
     ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
@@ -440,7 +442,9 @@ typedef struct {
 #endif
 } ngx_event_conf_t;
 
-
+/*
+ * ngx_event_core_module模块配置结构
+ */
 typedef struct {
     ngx_str_t              *name;
 
@@ -484,7 +488,9 @@ extern ngx_uint_t             ngx_event_flags;
 extern ngx_module_t           ngx_events_module;
 extern ngx_module_t           ngx_event_core_module;
 
-
+/*
+ * 返回事件模块中module子模块的配置结构
+ */
 #define ngx_event_get_conf(conf_ctx, module)                                  \
              (*(ngx_get_conf(conf_ctx, ngx_events_module))) [module.ctx_index];
 

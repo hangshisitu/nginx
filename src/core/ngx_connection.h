@@ -141,7 +141,7 @@ struct ngx_connection_s {
 
     ngx_pool_t         *pool;
 
-    struct sockaddr    *sockaddr;
+    struct sockaddr    *sockaddr;            /* accept函数返回的套接口的地址 */
     socklen_t           socklen;
     ngx_str_t           addr_text;
 
@@ -151,7 +151,7 @@ struct ngx_connection_s {
     ngx_ssl_connection_t  *ssl;
 #endif
 
-    struct sockaddr    *local_sockaddr;
+    struct sockaddr    *local_sockaddr;      /* accept函数监听的地址 */
     socklen_t           local_socklen;
 
     ngx_buf_t          *buffer;

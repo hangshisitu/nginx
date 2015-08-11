@@ -41,7 +41,7 @@ sig_atomic_t          ngx_event_timer_alarm;
 static ngx_uint_t     ngx_event_max_module;
 
 ngx_uint_t            ngx_event_flags;
-ngx_event_actions_t   ngx_event_actions;
+ngx_event_actions_t   ngx_event_actions;         /* 事件接口实例 根据os不同被设置为(ngx_epoll_module_ctx.actions,ngx_kqueue_module_ctx.actions ...)*/
 
 
 static ngx_atomic_t   connection_counter = 1;
@@ -49,12 +49,12 @@ ngx_atomic_t         *ngx_connection_counter = &connection_counter;
 
 
 ngx_atomic_t         *ngx_accept_mutex_ptr;
-ngx_shmtx_t           ngx_accept_mutex;
-ngx_uint_t            ngx_use_accept_mutex;
+ngx_shmtx_t           ngx_accept_mutex;               /* 惊群控制锁 */
+ngx_uint_t            ngx_use_accept_mutex;           /* 是否关闭惊群 */
 ngx_uint_t            ngx_accept_events;
-ngx_uint_t            ngx_accept_mutex_held;
+ngx_uint_t            ngx_accept_mutex_held;          /* 标记当前work进程(epoll..)是否监听新连接的到达 */
 ngx_msec_t            ngx_accept_mutex_delay;
-ngx_int_t             ngx_accept_disabled;
+ngx_int_t             ngx_accept_disabled;            /* >0 说明work进程繁忙，不再去处理处理新的连接 */
 
 
 #if (NGX_STAT_STUB)
@@ -77,7 +77,7 @@ ngx_atomic_t  *ngx_stat_waiting = &ngx_stat_waiting0;
 #endif
 
 
-
+/* ngx_events_module 模块解析的配置命令 */
 static ngx_command_t  ngx_events_commands[] = {
 
     { ngx_string("events"),
@@ -90,14 +90,14 @@ static ngx_command_t  ngx_events_commands[] = {
       ngx_null_command
 };
 
-
+/* ngx_events_module 模块的配置上下文 */
 static ngx_core_module_t  ngx_events_module_ctx = {
     ngx_string("events"),
     NULL,
     ngx_event_init_conf
 };
 
-
+/* ngx_events_module 模块*/
 ngx_module_t  ngx_events_module = {
     NGX_MODULE_V1,
     &ngx_events_module_ctx,                /* module context */
@@ -116,7 +116,7 @@ ngx_module_t  ngx_events_module = {
 
 static ngx_str_t  event_core_name = ngx_string("event_core");
 
-
+/* ngx_event_core_module 模块解析的配置命令 */
 static ngx_command_t  ngx_event_core_commands[] = {
 
     { ngx_string("worker_connections"),
@@ -164,7 +164,7 @@ static ngx_command_t  ngx_event_core_commands[] = {
       ngx_null_command
 };
 
-
+/* ngx_event_core_module模块的配置上下文 */
 ngx_event_module_t  ngx_event_core_module_ctx = {
     &event_core_name,
     ngx_event_core_create_conf,            /* create configuration */
@@ -173,7 +173,7 @@ ngx_event_module_t  ngx_event_core_module_ctx = {
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
-
+/* ngx_event_core_module模块 */
 ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1,
     &ngx_event_core_module_ctx,            /* module context */
@@ -196,6 +196,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_uint_t  flags;
     ngx_msec_t  timer, delta;
 
+    /* 如果配置文件中设置了时间精度 */
     if (ngx_timer_resolution) {
         timer = NGX_TIMER_INFINITE;
         flags = 0;
@@ -214,20 +215,37 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
 #endif
     }
-
+    /* 关闭惊群 */
     if (ngx_use_accept_mutex) {
+        
         if (ngx_accept_disabled > 0) {
             ngx_accept_disabled--;
+            /* work进程繁忙，但没有调用 ngx_disable_accept_events 将监听连接的可读事件从当前进程的epoll中移除
+               进程还是会处理新连接到达的事件
 
+               // add by TonyXiao 2015-08-11
+               if(ngx_disable_accept_events(cycle) == NGX_OK)
+               {
+                    ngx_accept_mutex_held = 0;
+               }
+            */
         } else {
+            /* 获得accept锁，多个worker仅有一个可以得到这把锁。获得锁不是阻塞过程，都是立刻返回，
+               获取成功的话ngx_accept_mutex_held被置为1。拿到锁，意味着监听句柄被放到本进程
+               的epoll中了，如果没有拿到锁，则监听句柄会被从epoll中取出 */
             if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
                 return;
             }
 
+            /* 拿到锁的话，置flag为NGX_POST_EVENTS，这意味着ngx_process_events函数中，任何事件
+               都将延后处理，会把accept事件都放到ngx_posted_accept_events链表中，epollin|epollout事件
+               都放到ngx_posted_events链表中 */
             if (ngx_accept_mutex_held) {
                 flags |= NGX_POST_EVENTS;
 
             } else {
+                /* 拿不到锁，也就不会处理监听的句柄，这个timer实际是传给epoll_wait的超时时间，修改
+                   为ngx_accept_mutex_delay意味着epoll_wait更短的超时返回，以免新连接长时间没有得到处理 */
                 if (timer == NGX_TIMER_INFINITE
                     || timer > ngx_accept_mutex_delay)
                 {
@@ -245,9 +263,10 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "timer delta: %M", delta);
-
+    /* 处理监听连接事件 */
     ngx_event_process_posted(cycle, &ngx_posted_accept_events);
 
+    /* 释放锁 */
     if (ngx_accept_mutex_held) {
         ngx_shmtx_unlock(&ngx_accept_mutex);
     }
@@ -255,7 +274,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     if (delta) {
         ngx_event_expire_timers();
     }
-
+    /* 处理数据连接事件 */
     ngx_event_process_posted(cycle, &ngx_posted_events);
 }
 
@@ -406,7 +425,9 @@ ngx_handle_write_event(ngx_event_t *wev, size_t lowat)
     return NGX_OK;
 }
 
-
+/* 
+ * ngx_events_module模块配置上下文初始化
+ */
 static char *
 ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
 {
@@ -439,6 +460,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
                       "using the \"%s\" event method", ecf->name);
     }
 
+    /* 从ngx_core_module模块获取时间精度设置 */
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
     ngx_timer_resolution = ccf->timer_resolution;
@@ -866,7 +888,9 @@ ngx_send_lowat(ngx_connection_t *c, size_t lowat)
     return NGX_OK;
 }
 
-
+/*
+ * 解析配置指令块 events{...}
+ */
 static char *
 ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1141,7 +1165,9 @@ ngx_event_debug_connection(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 创建 ngx_event_core_module模块的配置结构
+ */
 static void *
 ngx_event_core_create_conf(ngx_cycle_t *cycle)
 {
@@ -1172,7 +1198,9 @@ ngx_event_core_create_conf(ngx_cycle_t *cycle)
     return ecf;
 }
 
-
+/*
+ * 初始化 ngx_event_core_module模块的配置结构
+ */
 static char *
 ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
 {

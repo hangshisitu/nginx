@@ -29,7 +29,9 @@
                        "update posted event %p", ev);                         \
     }
 
-
+/*
+ * 将ev->queue从所在队列移除
+ */
 #define ngx_delete_posted_event(ev)                                           \
                                                                               \
     (ev)->posted = 0;                                                         \

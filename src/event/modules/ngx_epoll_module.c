@@ -359,7 +359,7 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
     nevents = epcf->events;
 
     ngx_io = ngx_os_io;
-
+    /* 设置事件接口实例 */
     ngx_event_actions = ngx_epoll_module_ctx.actions;
 
 #if (NGX_HAVE_CLEAR_EVENT)
@@ -972,7 +972,9 @@ ngx_epoll_eventfd_handler(ngx_event_t *ev)
 
 #endif
 
-
+/*
+ * 创建 epoll 配置结构
+ */
 static void *
 ngx_epoll_create_conf(ngx_cycle_t *cycle)
 {
@@ -989,7 +991,9 @@ ngx_epoll_create_conf(ngx_cycle_t *cycle)
     return epcf;
 }
 
-
+/*
+ * 初始化 epoll 配置结构
+ */
 static char *
 ngx_epoll_init_conf(ngx_cycle_t *cycle, void *conf)
 {

@@ -109,7 +109,7 @@ ngx_event_accept(ngx_event_t *ev)
                     continue;
                 }
             }
-
+            /* 打开的文件描述符已达上限，关闭对监听连接可读事件的监听 */
             if (err == NGX_EMFILE || err == NGX_ENFILE) {
                 if (ngx_disable_accept_events((ngx_cycle_t *) ngx_cycle, 1)
                     != NGX_OK)
@@ -139,7 +139,7 @@ ngx_event_accept(ngx_event_t *ev)
 
         ngx_accept_disabled = ngx_cycle->connection_n / 8
                               - ngx_cycle->free_connection_n;
-
+        /* 为accept返回的套接口s分配一个连接资源c */
         c = ngx_get_connection(s, ev->log);
 
         if (c == NULL) {
@@ -364,7 +364,9 @@ ngx_event_accept(ngx_event_t *ev)
     } while (ev->available);
 }
 
-
+/*
+ * 获取接收新连接的锁
+ */
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
@@ -372,11 +374,11 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "accept mutex locked");
-
+        /* 已经开启了监听新连接 */
         if (ngx_accept_mutex_held && ngx_accept_events == 0) {
             return NGX_OK;
         }
-
+        /* 开启监听新连接 */
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
@@ -390,7 +392,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "accept mutex lock failed: %ui", ngx_accept_mutex_held);
-
+    /* 没有获取到锁，关闭对新连接到达的监听 */
     if (ngx_accept_mutex_held) {
         if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
             return NGX_ERROR;
@@ -402,7 +404,10 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/*
+ * 在当前进程epoll中注册cycle中listening监听连接的可读事件
+ * 当有新的连接到达，该进程的epoll_waite会被唤醒
+ */
 static ngx_int_t
 ngx_enable_accept_events(ngx_cycle_t *cycle)
 {
@@ -414,7 +419,7 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
     for (i = 0; i < cycle->listening.nelts; i++) {
 
         c = ls[i].connection;
-
+        /* 监听连接的连接对象为空或其读事件已在监听中*/
         if (c == NULL || c->read->active) {
             continue;
         }
@@ -427,7 +432,9 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/*
+ * 关闭cycle中listening每个监听连接的可读事件
+ */
 static ngx_int_t
 ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all)
 {
@@ -467,7 +474,9 @@ ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all)
     return NGX_OK;
 }
 
-
+/*
+ * 释放连接资源并关闭套接口
+ */
 static void
 ngx_close_accepted_connection(ngx_connection_t *c)
 {
