@@ -1212,7 +1212,10 @@ ngx_inet_resolve_host(ngx_pool_t *pool, ngx_url_t *u)
 
 #endif /* NGX_HAVE_GETADDRINFO && NGX_HAVE_INET6 */
 
-
+/*
+ * 比较sa1和sa2的协议类型，地址,端口
+ * 当cmp_port=0时，无需比较端口
+ */
 ngx_int_t
 ngx_cmp_sockaddr(struct sockaddr *sa1, socklen_t slen1,
     struct sockaddr *sa2, socklen_t slen2, ngx_uint_t cmp_port)

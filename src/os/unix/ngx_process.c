@@ -271,7 +271,7 @@ ngx_execute(ngx_cycle_t *cycle, ngx_exec_ctx_t *ctx)
 }
 
 /*
- *启动新进程
+ * 启动新进程
  */
 static void
 ngx_execute_proc(ngx_cycle_t *cycle, void *data)
@@ -283,7 +283,7 @@ ngx_execute_proc(ngx_cycle_t *cycle, void *data)
                       "execve() failed while executing %s \"%s\"",
                       ctx->name, ctx->path);
     }
-
+    /* execve 函数成功不会返回，失败就结束进程 */
     exit(1);
 }
 
@@ -394,7 +394,7 @@ ngx_signal_handler(int signo)
             ngx_change_binary = 1;
             action = ", changing binary";
             break;
-
+        /* 定时信号 */
         case SIGALRM:
             ngx_sigalrm = 1;
             break;
@@ -402,7 +402,7 @@ ngx_signal_handler(int signo)
         case SIGIO:
             ngx_sigio = 1;
             break;
-
+        /* 收到work进程结束的信号 */
         case SIGCHLD:
             ngx_reap = 1;
             break;
@@ -626,7 +626,7 @@ ngx_debug_point(void)
 }
 
 /*
- * 发送 name 信号到进程pid
+ * 发送 name 信号到pid进程
  */
 ngx_int_t
 ngx_os_signal_process(ngx_cycle_t *cycle, char *name, ngx_int_t pid)

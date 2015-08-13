@@ -100,6 +100,8 @@ ngx_conf_param(ngx_conf_t *cf)
 
 /*
  * 解析配置文件
+ * 该函数递归调用发生在解析block指令的时候
+ * 解析block指令的set中会调用ngx_conf_pare来解析block内的指令
  */
 char *
 ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
@@ -189,7 +191,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         }
 
         if (rc == NGX_CONF_BLOCK_DONE) {
-
+            /* 当前不是在解析一个block，却读到一个block的结束符 */
             if (type != parse_block) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "unexpected \"}\"");
                 goto failed;
@@ -199,7 +201,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         }
 
         if (rc == NGX_CONF_FILE_DONE) {
-
+            /* 当前正在解析一个block,却读到文件尾，说明block没有正常结束 */
             if (type == parse_block) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "unexpected end of file, expecting \"}\"");
@@ -210,7 +212,8 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         }
 
         if (rc == NGX_CONF_BLOCK_START) {
-
+            /* 当前正在解析命令行传入的配置参数，却读到一block起始符 */
+            /* 命令行传入的配置参数不支持block */
             if (type == parse_param) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "block directives are not supported "
@@ -284,9 +287,11 @@ done:
 }
 
 /* 
+ * 解析ngx_conf_read_token 读到的配置指令
  * 查找 cf->args 配置命令 ngx_command_s
  * 进行配置命令类型参数校验
  * 最后调用ngx_command_s 中的set完成配置值转存
+ * last取值为NGX_OK或者NGX_CONF_BLOCK_START
  */
 static ngx_int_t
 ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
@@ -297,6 +302,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
     ngx_str_t      *name;
     ngx_command_t  *cmd;
 
+    /* 配置指令名 */
     name = cf->args->elts;
 
     found = 0;
@@ -319,7 +325,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             found = 1;
-
+            /* 验证命令所属模块类型 */
             if (ngx_modules[i]->type != NGX_CONF_MODULE
                 && ngx_modules[i]->type != cf->module_type)
             {
@@ -327,18 +333,19 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             /* is the directive's location right ? */
-
+            /* 上下文类型校验 */
             if (!(cmd->type & cf->cmd_type)) {
                 continue;
             }
 
+            /* cmd 不是一个block指令，读到是以'{'结尾 */
             if (!(cmd->type & NGX_CONF_BLOCK) && last != NGX_OK) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                   "directive \"%s\" is not terminated by \";\"",
                                   name->data);
                 return NGX_ERROR;
             }
-
+            /* cmd 是一个block指令，读到却不是以'{'结尾 */
             if ((cmd->type & NGX_CONF_BLOCK) && last != NGX_CONF_BLOCK_START) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "directive \"%s\" has no opening \"{\"",
@@ -383,9 +390,13 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             conf = NULL;
 
             if (cmd->type & NGX_DIRECT_CONF) {
+                /* conf 为模块对应的配置结构体 */
                 conf = ((void **) cf->ctx)[ngx_modules[i]->index];
-
             } else if (cmd->type & NGX_MAIN_CONF) {
+                /* conf 为模块配置结构在cf->ctx所占槽位 */
+                /* 指令的上下文为main,却不是NGX_DIRECT_CONF指令*/
+                /* 事实上只有main.error_log,main.events,main.http,main.mail,main.stream 指令的解析 */
+                /* 会执行该分支,这几个指令所在的模块的配置结构的分配放到了cmd->set中进行  */
                 conf = &(((void **) cf->ctx)[ngx_modules[i]->index]);
 
             } else if (cf->ctx) {
@@ -463,7 +474,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
     s_quoted = 0;                          /* token以单引号起始, 必须以单引号结束 */
     d_quoted = 0;                          /* token以双引号起始, 必须以双引号结束 */
 
-    cf->args->nelts = 0;
+    cf->args->nelts = 0;                   /* 清空前次读到的token */
     b = cf->conf_file->buffer;
     start = b->pos;
     start_line = cf->conf_file->line;

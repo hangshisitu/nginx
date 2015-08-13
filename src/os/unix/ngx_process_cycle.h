@@ -19,12 +19,12 @@
 #define NGX_CMD_TERMINATE      4
 #define NGX_CMD_REOPEN         5
 
-
-#define NGX_PROCESS_SINGLE     0
-#define NGX_PROCESS_MASTER     1
-#define NGX_PROCESS_SIGNALLER  2
-#define NGX_PROCESS_WORKER     3
-#define NGX_PROCESS_HELPER     4
+/* nginx 的进程类型 */
+#define NGX_PROCESS_SINGLE     0           /* 单进程 */
+#define NGX_PROCESS_MASTER     1           /* master进程 */
+#define NGX_PROCESS_SIGNALLER  2           /* 信号发生器 */
+#define NGX_PROCESS_WORKER     3           /* work进程 */
+#define NGX_PROCESS_HELPER     4           /* work进程 */
 
 
 typedef struct {

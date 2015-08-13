@@ -35,7 +35,7 @@ typedef struct {
     unsigned            exited:1;
 } ngx_process_t;
 
-
+/* 执行二进制文件的上下文结构 */
 typedef struct {
     char         *path;
     char         *name;

@@ -165,7 +165,7 @@ ngx_module_t  ngx_core_module = {
 };
 
 
-ngx_uint_t          ngx_max_module;
+ngx_uint_t          ngx_max_module;        /* 模块数 即ngx_modules数组的长度 */
 
 static ngx_uint_t   ngx_show_help;
 static ngx_uint_t   ngx_show_version;
@@ -187,6 +187,7 @@ main(int argc, char *const *argv)
     ngx_cycle_t      *cycle, init_cycle;
     ngx_core_conf_t  *ccf;
 
+    /* 与OS相关的debug宏, linux平台下它什么也不做 */
     ngx_debug_init();
 
     if (ngx_strerror_init() != NGX_OK) {
@@ -261,7 +262,7 @@ main(int argc, char *const *argv)
     }
 
     /* TODO */ ngx_max_sockets = -1;
-
+    /* 初始化时间缓存 */
     ngx_time_init();
 
 #if (NGX_PCRE)
@@ -314,15 +315,16 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /* 执行热替换时,new master 从环境变量继承old master的监听套接口 */
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
-
+    /* 模块在ngx_modules数组中的索引填入 index字段 */
     ngx_max_module = 0;
     for (i = 0; ngx_modules[i]; i++) {
         ngx_modules[i]->index = ngx_max_module++;
     }
-
+    /* 创建一个新的ngx_cycle_t */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
         if (ngx_test_config) {
@@ -341,7 +343,7 @@ main(int argc, char *const *argv)
 
         return 0;
     }
-
+    /* 信号发生器模式 */
     if (ngx_signal) {
         return ngx_signal_process(cycle, ngx_signal);
     }
@@ -351,13 +353,14 @@ main(int argc, char *const *argv)
     ngx_cycle = cycle;
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
-
+    /* master模式 */
     if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {
         ngx_process = NGX_PROCESS_MASTER;                     /* 设置当前进程为master进程 */
     }
 
 #if !(NGX_WIN32)
-
+    
+    /* 信号处理初始化 */
     if (ngx_init_signals(cycle->log) != NGX_OK) {
         return 1;
     }
@@ -473,8 +476,10 @@ ngx_set_environment(ngx_cycle_t *cycle, ngx_uint_t *last)
         return ccf->environment;
     }
 
+    /* 获取配置指令env设置的环境变量 */
     var = ccf->env.elts;
 
+    /* 其中没有TZ变量就添加TZ变量 */
     for (i = 0; i < ccf->env.nelts; i++) {
         if (ngx_strcmp(var[i].data, "TZ") == 0
             || ngx_strncmp(var[i].data, "TZ=", 3) == 0)
@@ -498,7 +503,7 @@ tz_found:
     n = 0;
 
     for (i = 0; i < ccf->env.nelts; i++) {
-
+        /* 忽略值为空的环境变量 */
         if (var[i].data[var[i].len] == '=') {
             n++;
             continue;
@@ -557,7 +562,12 @@ tz_found:
     return env;
 }
 
-
+/*
+ * 热替换master进程
+ * 返回新进程的进程ID
+ * old master将监听套接口的描述符写到NGINX变量
+ * new master从环境变量继承这些套接口
+ */
 ngx_pid_t
 ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 {
@@ -589,6 +599,7 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
         return NGX_INVALID_PID;
     }
 
+    /* 把监听套接字的文件描述符写入环境变量 */
     p = ngx_cpymem(var, NGINX_VAR "=", sizeof(NGINX_VAR));
 
     ls = cycle->listening.elts;
@@ -600,6 +611,7 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 
     env[n++] = var;
 
+    /* 为设置新的进程名预留空间 */
 #if (NGX_SETPROCTITLE_USES_ENV)
 
     /* allocate the spare 300 bytes for the new binary process title */

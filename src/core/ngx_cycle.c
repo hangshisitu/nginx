@@ -31,7 +31,10 @@ ngx_uint_t             ngx_quiet_mode;     /* 标志命令行中传入了 -q 参数 */
 static ngx_connection_t  dumb;
 /* STUB */
 
-
+/*
+ *
+ * 函数成功返回一个ngx_cycle_t结构指针，失败返回NULL
+ */
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
 {
@@ -51,6 +54,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_core_module_t   *module;
     char                 hostname[NGX_MAXHOSTNAMELEN];
 
+    /* 更新时区设置 */
     ngx_timezone_update();
 
     /* force localtime update with a new timezone */
@@ -58,7 +62,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     tp = ngx_timeofday();
     tp->sec = 0;
 
-    ngx_time_update();
+    ngx_time_update();       /* 更新时间缓存 */
 
 
     log = old_cycle->log;
@@ -182,7 +186,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     ngx_queue_init(&cycle->reusable_connections_queue);
 
-
+    /* 为模块配置信息数组conf_ctx分配空间 */
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
         ngx_destroy_pool(pool);
@@ -209,7 +213,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
-    /* 创建所有NGX_CORE_MODULE类型的模块创建配置信息结构 */
+    /* 调用NGX_CORE_MODULE类型的模块的配置上下文提供的接口创建配置信息结构 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -250,19 +254,25 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     conf.cycle = cycle;
     conf.pool = pool;
     conf.log = log;
+    /* 指定本次解析 NGX_CORE_MODULE 类型模块中指令上下文为main的配置指令 
+       即以下模块 ngx_core_module，ngx_errlog_module，ngx_regex_module，ngx_thread_pool_module，
+       ngx_events_module，ngx_openssl_module，ngx_http_module，ngx_mail_module，
+       ngx_google_perftools_module，ngx_stream_module */
     conf.module_type = NGX_CORE_MODULE;
     conf.cmd_type = NGX_MAIN_CONF;
 
 #if 0
     log->log_level = NGX_LOG_DEBUG_ALL;
 #endif
-
+    
+    /* 解析命令行传入的参数 */
     if (ngx_conf_param(&conf) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
         return NULL;
     }
 
+    /* 解析配置文件传入的参数 */
     if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
@@ -274,6 +284,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                        cycle->conf_file.data);
     }
 
+    /* NGX_CORE_MODULE类型的模块配置信息初始化，主要为那些在配置文件没有配置的指令填写默认值 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -378,6 +389,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
 
 #if !(NGX_WIN32)
+        /* 在fork的子进程中执行exec函数该文件描述将关闭 */
         if (fcntl(file[i].fd, F_SETFD, FD_CLOEXEC) == -1) {
             ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
                           "fcntl(FD_CLOEXEC) \"%s\" failed",
@@ -592,11 +604,12 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 #endif
         }
     }
-
+    /* 开启监听套接口  */
     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
         goto failed;
     }
 
+    /* 配置监听套接口 */
     if (!ngx_test_config) {
         ngx_configure_listening_sockets(cycle);
     }
@@ -610,6 +623,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     pool->log = cycle->log;
 
+    /* 调用各模块的init_module钩子函数 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->init_module) {
             if (ngx_modules[i]->init_module(cycle) != NGX_OK) {
@@ -977,7 +991,9 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
     return NGX_OK;
 }
 
-
+/*
+ * 删除记录pid的文件
+ */
 void
 ngx_delete_pidfile(ngx_cycle_t *cycle)
 {

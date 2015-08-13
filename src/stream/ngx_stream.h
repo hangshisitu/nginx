@@ -165,9 +165,9 @@ typedef struct {
 
 #define NGX_STREAM_MODULE       0x4d525453     /* "STRM" */
 
-#define NGX_STREAM_MAIN_CONF    0x02000000
-#define NGX_STREAM_SRV_CONF     0x04000000
-#define NGX_STREAM_UPS_CONF     0x08000000
+#define NGX_STREAM_MAIN_CONF    0x02000000     /* 配置指令的上下文为 main.stream */
+#define NGX_STREAM_SRV_CONF     0x04000000     /* 配置指令的上下文为 main.stream.server */
+#define NGX_STREAM_UPS_CONF     0x08000000     /* 配置指令的上下文为 main.stream.upstream */
 
 
 #define NGX_STREAM_MAIN_CONF_OFFSET  offsetof(ngx_stream_conf_ctx_t, main_conf)

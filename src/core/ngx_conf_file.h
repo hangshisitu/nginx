@@ -40,16 +40,16 @@
                               |NGX_CONF_TAKE4)
 
 #define NGX_CONF_ARGS_NUMBER 0x000000ff
-#define NGX_CONF_BLOCK       0x00000100
+#define NGX_CONF_BLOCK       0x00000100  /* 配置指令是一个block指令，指令参数是一个{}语句 */
 #define NGX_CONF_FLAG        0x00000200  /* 配置指令只有一个参数 */
 #define NGX_CONF_ANY         0x00000400  /* 配置指令的参数不做限制 */
 #define NGX_CONF_1MORE       0x00000800  /* 配置指令有一个以上的参数 */
 #define NGX_CONF_2MORE       0x00001000  /* 配置指令有两个以上的参数 */
 #define NGX_CONF_MULTI       0x00000000  /* compatibility */
 
-#define NGX_DIRECT_CONF      0x00010000  /* 直接配置指令*/
+#define NGX_DIRECT_CONF      0x00010000  /* 直接配置指令 不是block指令也不在{}语句中.即上下文为main的非block指令 */
 
-#define NGX_MAIN_CONF        0x01000000  /* 主配置指令 */
+#define NGX_MAIN_CONF        0x01000000  /* 该类型的配置指令上下文为main */
 #define NGX_ANY_CONF         0x0F000000
 
 
@@ -75,48 +75,50 @@
 #define NGX_MAX_CONF_ERRSTR  1024
 
 /**
-* module的配置指令
-*/
+ * 配置指令结构
+ */
 struct ngx_command_s {
-	/**
-	* 指令名，与配置文件中一致
-	*/
+    /*
+     * 指令名，与配置文件中一致
+     */
     ngx_str_t             name;
 
-	/**
-	* 指令的类型，以及参数的个数。这个属性有两个作用：
-	*  1. 实现只解析某个类型的指令，比如当前这个指令是event module类型的，而正在解析的是
-	*     http module，所以会跳过所有不是http module类型的指令。
-	*  2. 实现指令参数个数的校验。
-	*/
+    /*
+     * 指令的类型,影响指令的解析时间和解析方式。类型包括四部分的信息 
+     *   1.指令的上下文,如 NGX_MAIN_CONF，NGX_EVENT_CONF等
+     *   2.NGX_CONF_BLOCK或NGX_DIRECT_CONF或者二者都不是
+     *   3.指令参数校验类型，如NGX_CONF_ANY，NGX_CONF_2MORE等
+     *   4.指令所在模块定义的其他信息
+     */
     ngx_uint_t            type;
 
-	/*
-	* 回调函数，在解析配置文件时，遇到这个指令时调用。
-	* cf: 包括配置参数信息cf->args（ngx_array_t类型），以及指令对应的模块上下文cf->ctx
-	*      在解析不同模块的指令时，这个上下文信息不同。比如在解析core module时，cf->ctx
-	*      是ngx_cycle->conf_ctx也就是所有core module的配置结构数组，而在解析http module
-	*      时cf->ctx是ngx_http_conf_ctx_t类型的，其中包含所有http module的main、srv、loc
-	*      的配置结构数组。
-	* cmd: 指令对应的ngx_command_t结构。
-	* conf：指令对应的模块的配置信息。
-	*/
+    /*
+    * 在解析配置文件时，用于将读到的指令信息写入配置结构中的回调函数。
+    * 在该函数可能触发ngx_conf_parse的递归调用
+    * cf: 包括配置参数信息cf->args（ngx_array_t类型），以及指令对应的模块上下文cf->ctx
+    *      在解析不同模块的指令时，这个上下文信息不同。比如在解析core module时，cf->ctx
+    *      是ngx_cycle->conf_ctx也就是所有core module的配置结构数组，而在解析http module
+    *      时cf->ctx是ngx_http_conf_ctx_t类型的，其中包含所有http module的main、srv、loc
+    *      的配置结构数组。
+    * cmd: 指令对应的ngx_command_t结构。
+    * conf：指令对应的模块的配置信息。
+    */
     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
-	/**
-	* 对http module有效，http module的配置结构信息（main、srv、loc）都存放在ngx_http_conf_ctx_t
-	* 中对应的数组，conf属性指示这个指令的配置结构是main、srv还是loc。
-	*/
+    /**
+    * 对http module有效，http module的配置结构信息（main、srv、loc）都存放在ngx_http_conf_ctx_t
+    * 中对应的数组，conf属性指示这个指令的配置结构是main、srv还是loc。
+    */
     ngx_uint_t            conf;
 
-	/**
-	* 指令对应属性在模块配置结构中的偏移量。
-	*/
+    /**
+    * 指令对应属性在模块配置结构中的偏移量。
+    */
     ngx_uint_t            offset;
 
-	/**
-	* 一般是函数指针，在set回调函数中调用。
-	*/
+    /**
+    * 一般是函数指针，在set回调函数中调用。
+    */
     void                 *post;
 };
 
@@ -136,22 +138,23 @@ struct ngx_open_file_s {
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
 struct ngx_module_s {
-	
-	/**
-	* 在具体类型模块（http、event等）的全局配置结构数组的下标。以http module模块为例，
-	* nginx把所有的http module的config信息存放在ngx_http_conf_ctx_t类型的变量中，
-	* 这个变量只有3个属性，分别是所有http module的main、srv、loc的config信息的数组。
-	* 如果该模块是http module，则ctx_index是该模块的config信息（main、srv、loc）
-	* 在ngx_http_conf_ctx_t中的下标。
-	*/
+    
+    /**
+    * 在具体类型模块（http、event等）的全局配置结构数组的下标。以http module模块为例，
+    * nginx把所有的http module的config信息存放在ngx_http_conf_ctx_t类型的变量中，
+    * 这个变量只有3个属性，分别是所有http module的main、srv、loc的config信息的数组。
+    * 如果该模块是http module，则ctx_index是该模块的config信息（main、srv、loc）
+    * 在ngx_http_conf_ctx_t中的下标。
+    * 该模块在其父模块配置结构数组中的下标
+    */
     ngx_uint_t            ctx_index;
 
-	/**
-	* nginx把所有模块（ngx_module_t）存放到ngx_modules数组中，这个数组在nginx源码路
-	* 径的objs/ngx_modules.c中，是在运行configure脚本后生成的。index属性就是该模块
-	* 在ngx_modules数组中的下标。同时nginx把所有的core module的配置结构存放到ngx_cycle的
-	* conf_ctx数组中，index也是该模块的配置结构在ngx_cycle->conf_ctx数组中的下标。
-	*/
+    /**
+    * nginx把所有模块（ngx_module_t）存放到ngx_modules数组中，这个数组在nginx源码路
+    * 径的objs/ngx_modules.c中，是在运行configure脚本后生成的。index属性就是该模块
+    * 在ngx_modules数组中的下标。同时nginx把所有模块的配置结构存放到ngx_cycle的
+    * conf_ctx数组中，index也是该模块的配置结构在ngx_cycle->conf_ctx数组中的下标。
+    */
     ngx_uint_t            index;
 
     ngx_uint_t            spare0;
@@ -161,35 +164,36 @@ struct ngx_module_s {
 
     ngx_uint_t            version;
 
-	/**
-	* 模块的上下文属性，同一类型的模块的属性是相同的，比如core module的ctx是ngx_core_module_t类型。
-	* 而http module的ctx是ngx_http_moduel_t类型，event module的ctx是ngx_event_module_t类型等等。
-	* 相应类型的模块由分开处理的，比如所有的http module由ngx_http_module解析处理，而所有的event module
-	* 由ngx_events_module解析处理。
-	*/
+    /**
+    * 模块的上下文属性，同一类型的模块的属性是相同的，比如core module的ctx是ngx_core_module_t类型。
+    * 而http module的ctx是ngx_http_moduel_t类型，event module的ctx是ngx_event_module_t类型等等。
+    * 相应类型的模块由分开处理的，比如所有的http module由ngx_http_module解析处理，而所有的event module
+    * 由ngx_events_module解析处理。
+    * 上下文件结构通常提供了生成和初始化模块配置信息结构的方法
+    */
     void                 *ctx;
 
-	/**
-	* 该模块支持的指令的数组，最后以一个空指令结尾。ngx_commond_t的分析见下文。
-	*/
+    /**
+    * 该模块支持的指令的数组，最后以一个空指令结尾。ngx_commond_t的分析见下文。
+    */
     ngx_command_t        *commands;
 
-	/**
-	* 模块的类型，nginx所有的模块类型：
-	*      NGX_CORE_MODULE
-	*      NGX_CONF_MODULE
-	*      NGX_HTTP_MODULE
-	*      NGX_EVENT_MODULE
-	*      NGX_MAIL_MODULE
-	*	   NGX_STREAM_MODULE
-	* 这些不同的类型也指定了不同的ctx。
-	*/
+    /**
+    * 模块的类型，nginx所有的模块类型：
+    *      NGX_CORE_MODULE
+    *      NGX_CONF_MODULE
+    *      NGX_HTTP_MODULE
+    *      NGX_EVENT_MODULE
+    *      NGX_MAIL_MODULE
+    *	   NGX_STREAM_MODULE
+    * 这些不同的类型也指定了不同的ctx。
+    */
     ngx_uint_t            type;
 
-	/* 接下来都是一些回调函数，在nginx初始化过程的特定时间点调用 */
+    /* 接下来都是一些回调函数，在nginx初始化过程的特定时间点调用 */
     ngx_int_t           (*init_master)(ngx_log_t *log);
 
-	/* 初始化完所有模块后调用，在ngx_int_cycle函数（ngx_cycle.c）中 */
+    /* 初始化完所有模块后调用，在ngx_int_cycle函数（ngx_cycle.c）中 */
     ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
 
     ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
@@ -212,7 +216,7 @@ struct ngx_module_s {
 /*NGX_CORE_MODULE 类型模块的上下文结构*/
 typedef struct {
     ngx_str_t             name;
-	void               *(*create_conf)(ngx_cycle_t *cycle);              /* 创建模块配置信息结构*/
+    void               *(*create_conf)(ngx_cycle_t *cycle);              /* 创建模块配置信息结构*/
     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);    /* 初始化模块配置信息结构*/
 } ngx_core_module_t;
 
@@ -234,15 +238,15 @@ struct ngx_conf_s {
     char                 *name;
     ngx_array_t          *args;                    /* 保存从配置文件读到的token */
 
-    ngx_cycle_t          *cycle;
+    ngx_cycle_t          *cycle;                   /* 存储配置信息的cycle */
     ngx_pool_t           *pool;
     ngx_pool_t           *temp_pool;
     ngx_conf_file_t      *conf_file;               /* 指向待解析的配置文件*/
     ngx_log_t            *log;
 
-    void                 *ctx;                     /* 配置上下文 */
-    ngx_uint_t            module_type;             /* 模块类型：NGX_CORE_MODULE, ... */
-    ngx_uint_t            cmd_type;                /* 配置命令类型：NGX_MAIN_CONF, ... */
+    void                 *ctx;                     /* 当前正在解析的配置命令的上下文 */
+    ngx_uint_t            module_type;             /* 当前正在解析的模块的类型：NGX_CORE_MODULE, ... */
+    ngx_uint_t            cmd_type;                /* 当前正在解析的配置命令类型（上下文）：NGX_MAIN_CONF, ... */
 
     ngx_conf_handler_pt   handler;
     char                 *handler_conf;

@@ -44,8 +44,8 @@ sig_atomic_t  ngx_reopen;
 
 sig_atomic_t  ngx_change_binary;
 ngx_pid_t     ngx_new_binary;
-ngx_uint_t    ngx_inherited;
-ngx_uint_t    ngx_daemonized;
+ngx_uint_t    ngx_inherited;            /* 标记进程是否从环境变量继承了监听套接口 */
+ngx_uint_t    ngx_daemonized;           /* 标记进程是否已转为守护进程 */
 
 sig_atomic_t  ngx_noaccept;
 ngx_uint_t    ngx_noaccepting;
@@ -68,7 +68,9 @@ static ngx_cycle_t      ngx_exit_cycle;
 static ngx_log_t        ngx_exit_log;
 static ngx_open_file_t  ngx_exit_log_file;
 
-
+/*
+ * master进程主循环
+ */
 void
 ngx_master_process_cycle(ngx_cycle_t *cycle)
 {
@@ -95,7 +97,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     sigaddset(&set, ngx_signal_value(NGX_TERMINATE_SIGNAL));
     sigaddset(&set, ngx_signal_value(NGX_SHUTDOWN_SIGNAL));
     sigaddset(&set, ngx_signal_value(NGX_CHANGEBIN_SIGNAL));
-
+    /* 进程屏蔽set中的信号 */
     if (sigprocmask(SIG_BLOCK, &set, NULL) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       "sigprocmask() failed");
@@ -121,12 +123,13 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
         *p++ = ' ';
         p = ngx_cpystrn(p, (u_char *) ngx_argv[i], size);
     }
-
+    /* 修改进程名 */
     ngx_setproctitle(title);
 
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+    /* 启动work进程 */
     ngx_start_worker_processes(cycle, ccf->worker_processes,
                                NGX_PROCESS_RESPAWN);
     ngx_start_cache_manager_processes(cycle, 0);
@@ -134,9 +137,11 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_new_binary = 0;
     delay = 0;
     sigio = 0;
-    live = 1;
+    live = 1;     /* 标记是否还有活着的子进程*/
 
     for ( ;; ) {
+        //delay用来设置等待worker终止的时间，master接收了终止信号后
+        //首先发送终止信号给worker，然后等待work终止 
         if (delay) {
             if (ngx_sigalrm) {
                 sigio = 0;
@@ -151,7 +156,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             itv.it_interval.tv_usec = 0;
             itv.it_value.tv_sec = delay / 1000;
             itv.it_value.tv_usec = (delay % 1000 ) * 1000;
-
+            /* 应为itv.it_interval 为0 定时器只触发一次 */
             if (setitimer(ITIMER_REAL, &itv, NULL) == -1) {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                               "setitimer() failed");
@@ -159,25 +164,27 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
         }
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "sigsuspend");
-
+        /* 将进程的屏蔽信号集置空，然后进程挂起等待信号进入，信号处理程序处理完进入的信号后
+           恢复屏蔽信号集，最后sigsuspend返回 */
         sigsuspend(&set);
 
         ngx_time_update();
 
         ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "wake up, sigio %i", sigio);
-
+        /* 当master收到work进程结束信号，回收子进程 */
         if (ngx_reap) {
             ngx_reap = 0;
             ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "reap children");
 
             live = ngx_reap_children(cycle);
         }
-
+        /* live为1表示有子进程在运行，为0代表，所有子进程都退出了 */
         if (!live && (ngx_terminate || ngx_quit)) {
+            /* 没有子进程了 且收到终止或退出信号*/
             ngx_master_process_exit(cycle);
         }
-
+        /* master收到终止信号*/
         if (ngx_terminate) {
             if (delay == 0) {
                 delay = 50;
@@ -191,15 +198,17 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             sigio = ccf->worker_processes + 2 /* cache processes */;
 
             if (delay > 1000) {
+                /* 延时已到，给所有worker发送SIGKILL信号，强制杀死worker */
                 ngx_signal_worker_processes(cycle, SIGKILL);
             } else {
+                /* 通知work进程终止 */
                 ngx_signal_worker_processes(cycle,
                                        ngx_signal_value(NGX_TERMINATE_SIGNAL));
             }
 
             continue;
         }
-
+        /* 通知工作线程退出，并关闭所有监听套接口 */
         if (ngx_quit) {
             ngx_signal_worker_processes(cycle,
                                         ngx_signal_value(NGX_SHUTDOWN_SIGNAL));
@@ -219,7 +228,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
         if (ngx_reconfigure) {
             ngx_reconfigure = 0;
-
+            /* 代码已被替换，重启worker，不需要重新初始化配置。 */
             if (ngx_new_binary) {
                 ngx_start_worker_processes(cycle, ccf->worker_processes,
                                            NGX_PROCESS_RESPAWN);
@@ -230,7 +239,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             }
 
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reconfiguring");
-
+            //重新初始化配置 
             cycle = ngx_init_cycle(cycle);
             if (cycle == NULL) {
                 cycle = (ngx_cycle_t *) ngx_cycle;
@@ -251,7 +260,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             ngx_signal_worker_processes(cycle,
                                         ngx_signal_value(NGX_SHUTDOWN_SIGNAL));
         }
-
+        /* 重新创建work进程 当ngx_noaccepting==1时，会把ngx_restart设为1，重启worker */
         if (ngx_restart) {
             ngx_restart = 0;
             ngx_start_worker_processes(cycle, ccf->worker_processes,
@@ -259,7 +268,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             ngx_start_cache_manager_processes(cycle, 0);
             live = 1;
         }
-
+        /* 从新打开日志文件 */
         if (ngx_reopen) {
             ngx_reopen = 0;
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reopening logs");
@@ -267,13 +276,13 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             ngx_signal_worker_processes(cycle,
                                         ngx_signal_value(NGX_REOPEN_SIGNAL));
         }
-
+        /* 热替换 */
         if (ngx_change_binary) {
             ngx_change_binary = 0;
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "changing binary");
             ngx_new_binary = ngx_exec_new_binary(cycle, ngx_argv);
         }
-
+        /* 通知work进程停止accept新连接,work进程退出 */
         if (ngx_noaccept) {
             ngx_noaccept = 0;
             ngx_noaccepting = 1;
@@ -681,7 +690,7 @@ ngx_reap_children(ngx_cycle_t *cycle)
     return live;
 }
 
-
+/* 退出 master 进程 */
 static void
 ngx_master_process_exit(ngx_cycle_t *cycle)
 {
@@ -697,6 +706,7 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
         }
     }
 
+    /* 关闭监听套接口 */
     ngx_close_listening_sockets(cycle);
 
     /*

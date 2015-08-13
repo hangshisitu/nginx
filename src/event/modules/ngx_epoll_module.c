@@ -95,8 +95,8 @@ struct io_event {
 
 /* epoll 的配置结构 */
 typedef struct {
-    ngx_uint_t  events;
-    ngx_uint_t  aio_requests;
+    ngx_uint_t  events;              /* 对应配置指令 epoll_events 默认值为512*/
+    ngx_uint_t  aio_requests;        /* 对应配置指令 worker_aio_requests 默认值为32*/
 } ngx_epoll_conf_t;
 
 
@@ -127,8 +127,8 @@ static void *ngx_epoll_create_conf(ngx_cycle_t *cycle);
 static char *ngx_epoll_init_conf(ngx_cycle_t *cycle, void *conf);
 
 static int                  ep = -1;                   /* epoll文件描述符 */
-static struct epoll_event  *event_list;                /* 事件数组 */
-static ngx_uint_t           nevents;                   /* 事件个数 */
+static struct epoll_event  *event_list;                /* 事件数组用来接收epoll_wait返回的事件 */
+static ngx_uint_t           nevents;                   /* event_list的元素个数 配置指令epoll_events设置的值 */
 
 #if (NGX_HAVE_EVENTFD)
 static int                  notify_fd = -1;            /* eventfd */
@@ -167,7 +167,7 @@ static ngx_command_t  ngx_epoll_commands[] = {
       ngx_null_command
 };
 
-/* epoll模块配置上下文 */
+/* ngx_epoll_module 模块配置上下文 */
 ngx_event_module_t  ngx_epoll_module_ctx = {
     &epoll_name,
     ngx_epoll_create_conf,               /* create configuration */
@@ -191,6 +191,7 @@ ngx_event_module_t  ngx_epoll_module_ctx = {
     }
 };
 
+/* ngx_epoll_module 模块*/
 ngx_module_t  ngx_epoll_module = {
     NGX_MODULE_V1,
     &ngx_epoll_module_ctx,               /* module context */
@@ -348,7 +349,7 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
         if (event_list) {
             ngx_free(event_list);
         }
-
+        /* 为event_list分配空间用于epoll_wait的调用 */
         event_list = ngx_alloc(sizeof(struct epoll_event) * epcf->events,
                                cycle->log);
         if (event_list == NULL) {
@@ -973,7 +974,7 @@ ngx_epoll_eventfd_handler(ngx_event_t *ev)
 #endif
 
 /*
- * 创建 epoll 配置结构
+ * 创建 ngx_epoll_module 模块配置结构
  */
 static void *
 ngx_epoll_create_conf(ngx_cycle_t *cycle)
@@ -992,7 +993,7 @@ ngx_epoll_create_conf(ngx_cycle_t *cycle)
 }
 
 /*
- * 初始化 epoll 配置结构
+ * 初始化 ngx_epoll_module 模块配置结构
  */
 static char *
 ngx_epoll_init_conf(ngx_cycle_t *cycle, void *conf)

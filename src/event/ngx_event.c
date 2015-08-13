@@ -40,7 +40,7 @@ sig_atomic_t          ngx_event_timer_alarm;
 
 static ngx_uint_t     ngx_event_max_module;
 
-ngx_uint_t            ngx_event_flags;
+ngx_uint_t            ngx_event_flags;           /* 事件属性 根据ngx_event_actions的不同设置不同的值 */
 ngx_event_actions_t   ngx_event_actions;         /* 事件接口实例 根据os不同被设置为(ngx_epoll_module_ctx.actions,ngx_kqueue_module_ctx.actions ...)*/
 
 
@@ -901,7 +901,7 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_event_module_t   *m;
 
     if (*(void **) conf) {
-        return "is duplicate";
+        return "is duplicate";           /* events配置指令重复 */
     }
 
     /* count the number of the event modules and set up their indices */
@@ -919,14 +919,16 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
-
+    /* 为每个事件模块分配一个槽位 */
     *ctx = ngx_pcalloc(cf->pool, ngx_event_max_module * sizeof(void *));
     if (*ctx == NULL) {
         return NGX_CONF_ERROR;
     }
 
+    /* 将ctx 与cycle->conf_ctx关联起来 */
     *(void **) conf = ctx;
 
+    /* 为每个事件模块创建配置结构 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_EVENT_MODULE) {
             continue;
@@ -947,6 +949,7 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     cf->module_type = NGX_EVENT_MODULE;
     cf->cmd_type = NGX_EVENT_CONF;
 
+    /* 解析events{..} 指令块 */
     rv = ngx_conf_parse(cf, NULL);
 
     *cf = pcf;

@@ -37,11 +37,14 @@ struct ngx_shm_zone_s {
 
 struct ngx_cycle_s {
 
-	/**
-	* 所有core module的配置结构信息的数组，大小是ngx_max_module。配置结构信息由
-	* ngx_core_module_t的create_config回调函数生成，并由init_config回调函数初始化。
-	* module的index属性指示了该模块的配置结构信息在conf_ctx数组中的下标。
-	*/
+    /*
+     * conf_ctx为一个数组，数组元素的类型为void*，元素个数为ngx_max_module模块数。
+     * ngx_module_s的index字段指示了该模块的配置结构信息在conf_ctx数组中的下标。
+     * 不同模块的配置信息结构是不同
+     * 例如 ngx_core_module 的配置信息结构为ngx_core_conf_t
+     *      ngx_errlog_module 的配置信息无需保存因此其对应的槽位空闲不用
+     *      ngx_events_module 的配置信息结构为一个数组，数组元素指向为各子模块的配置结构
+     */
     void                  ****conf_ctx;
 
 	/**
@@ -84,7 +87,7 @@ struct ngx_cycle_s {
 	*/
     ngx_list_t                shared_memory;
 
-    ngx_uint_t                connection_n;       // 链接个数
+    ngx_uint_t                connection_n;       // 链接个数  对应配置指令 main.events.worker_connections 
     ngx_uint_t                files_n;            // 打开文件个数 
 
 	/**
@@ -94,7 +97,7 @@ struct ngx_cycle_s {
     ngx_event_t              *read_events;       // 读事件
     ngx_event_t              *write_events;      // 写事件
 
-    ngx_cycle_t              *old_cycle;
+    ngx_cycle_t              *old_cycle;         //调用 ngx_init_cycle 是传入的参数
 
     ngx_str_t                 conf_file;         // 配置文件名 
     ngx_str_t                 conf_param;        // 由命令行-g提供配置参数
@@ -105,7 +108,7 @@ struct ngx_cycle_s {
 };
 
 /**
-* ngx_core_module 的配置指令属性
+* ngx_core_module 的配置结构
 */
 typedef struct {
      ngx_flag_t               daemon;
