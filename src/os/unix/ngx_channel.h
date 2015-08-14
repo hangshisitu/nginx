@@ -15,8 +15,8 @@
 
 //master 进程与work 进程 通讯的通道
 typedef struct {
-     ngx_uint_t  command;            // 命令
-     ngx_pid_t   pid;                       //work 进程ID
+     ngx_uint_t  command;                    // 命令
+     ngx_pid_t   pid;                        //work 进程ID
      ngx_int_t   slot;                       //work 进程在ngx_proecsses 中的索引
      ngx_fd_t    fd;                         //文件描述符，work进程会读写fd
 } ngx_channel_t;

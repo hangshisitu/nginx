@@ -30,8 +30,8 @@ int              ngx_argc;                   /* 命令行参数个数 */
 char           **ngx_argv;                   /* 命令行参数的副本 */
 char           **ngx_os_argv;                /* 命令行参数的引用 */
 
-ngx_int_t        ngx_process_slot;                                            /* 当前进程在进程表中的槽位 */
-ngx_socket_t     ngx_channel;                                                 /* 当前进程与其他进程之间通信的 socket */
+ngx_int_t        ngx_process_slot;                                            /* 正在创建的进程在进程表中的槽位 */
+ngx_socket_t     ngx_channel;                                                 /* 正在创建的进程与其他进程之间通信的 socket */
 ngx_int_t        ngx_last_process;                                            /* 进程表最高槽位 */
 ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];                            /* 全局进程表 */
 
@@ -85,7 +85,11 @@ ngx_signal_t  signals[] = {
     { 0, NULL, "", NULL }
 };
 
-
+/*
+ * 创建子进程
+ * respawn为非负 则表示全局进程表ngx_processes中索引为respawn的进程已退出
+ * 本次调用重启该进程
+ */
 ngx_pid_t
 ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     char *name, ngx_int_t respawn)
@@ -120,6 +124,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
         /* Solaris 9 still has no AF_LOCAL */
 
+        /* 创建work进程与master进程通信的域套接口对*/
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, ngx_processes[s].channel) == -1)
         {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,

@@ -21,18 +21,18 @@ typedef void (*ngx_spawn_proc_pt) (ngx_cycle_t *cycle, void *data);
 
 typedef struct {
     ngx_pid_t           pid;                              //进程ID
-    int                 status;                             //进程状态
-    ngx_socket_t        channel[2];                //进程间通信的域套接字
+    int                 status;                           //进程状态
+    ngx_socket_t        channel[2];                       //进程间通信的域套接字
 
-    ngx_spawn_proc_pt   proc;
-    void               *data;
-    char               *name;
+    ngx_spawn_proc_pt   proc;                             //进程主循环函数
+    void               *data;                             //proc的参数
+    char               *name;                             //进程名
 
     unsigned            respawn:1;
     unsigned            just_spawn:1;
     unsigned            detached:1;
-    unsigned            exiting:1;
-    unsigned            exited:1;
+    unsigned            exiting:1;                        //标记进程正在退出
+    unsigned            exited:1;                         //标记进程已退出
 } ngx_process_t;
 
 /* 执行二进制文件的上下文结构 */
@@ -46,11 +46,19 @@ typedef struct {
 
 #define NGX_MAX_PROCESSES         1024
 
-#define NGX_PROCESS_NORESPAWN     -1
+#define NGX_PROCESS_NORESPAWN     -1       /* 子进程退出时,父进程不会再次创建, 该标记用在创建 "cache loader process". */
+/* 当 nginx - s reload 时, 如果还有未加载的 proxy_cache_path, 则需要再次创建
+ * "cache loader process"加载, 并用 NGX_PROCESS_JUST_SPAWN给这个进程做记号, 
+ * 防止 "master会向老的worker进程,老的cache manager进程,老的cache loader进程
+ * (如果存在)发送NGX_CMD_QUIT或SIGQUIT" 时, 误以为这个进程是老的cache loader进程*/
 #define NGX_PROCESS_JUST_SPAWN    -2
-#define NGX_PROCESS_RESPAWN       -3
+#define NGX_PROCESS_RESPAWN       -3       /* 子进程异常退出时,master会重新创建它, 如当worker或cache manager异常退出时,父进程会重新创建它 */
+
+/* 当 nginx - s reload 时, master会向老的worker进程, 老的cache manager进程, 老
+ * 的cache loader进程(如果存在)发送 ngx_write_channel(NGX_CMD_QUIT)(如果失败则
+ * 发送SIGQUIT信号);该标记用来标记进程数组中哪些是新创建的子进程; 其他的就是老的子进程.*/
 #define NGX_PROCESS_JUST_RESPAWN  -4
-#define NGX_PROCESS_DETACHED      -5
+#define NGX_PROCESS_DETACHED      -5       /* 热代码替换 */
 
 
 #define ngx_getpid   getpid

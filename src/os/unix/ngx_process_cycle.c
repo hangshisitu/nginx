@@ -371,7 +371,8 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
         ch.slot = ngx_process_slot;
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
-        ngx_pass_open_channel(cycle, &ch);                //将新创建的进程的channel[0] 传递给其他进程
+        //父进程将ngx_spawn_process新创建的进程的channel[0] 传递给进程表中的其他进程
+        ngx_pass_open_channel(cycle, &ch);
     }
 }
 
@@ -734,7 +735,9 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
     exit(0);
 }
 
-
+/*
+ * 工作进程主循环
+ */
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {
@@ -812,6 +815,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 * 根据配置文件初始化worker进程，比如配置文件中的cpu亲缘性、priority、work directory等等，
 * 同时关闭对端的channel。还会调用所有模块的init_process回调函数。最后会调用
 * ngx_add_channel_event将channel添加到事件循环中。
+* 参数worker为worker进程的序号等于创建的顺序
 */
 static void
 ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
@@ -831,13 +835,14 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+    /* 设置当前进程优先级 */
     if (worker >= 0 && ccf->priority != 0) {
         if (setpriority(PRIO_PROCESS, 0, ccf->priority) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "setpriority(%d) failed", ccf->priority);
         }
     }
-
+    /* 设置当前进程最大文件描述符限制 */
     if (ccf->rlimit_nofile != NGX_CONF_UNSET) {
         rlmt.rlim_cur = (rlim_t) ccf->rlimit_nofile;
         rlmt.rlim_max = (rlim_t) ccf->rlimit_nofile;
