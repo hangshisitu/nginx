@@ -1326,7 +1326,7 @@ ngx_set_cpu_affinity(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/* 获取第n个work进程与CPU的映射 */
 uint64_t
 ngx_get_cpu_affinity(ngx_uint_t n)
 {

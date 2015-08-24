@@ -22,7 +22,12 @@ typedef void (*ngx_spawn_proc_pt) (ngx_cycle_t *cycle, void *data);
 typedef struct {
     ngx_pid_t           pid;                              //进程ID
     int                 status;                           //进程状态
-    ngx_socket_t        channel[2];                       //进程间通信的域套接字
+
+    /* channel[0] 和  channel[1] 是一对已连接的套接字对，均可读可写
+     * work进程在channel[1]上监听读事件，收到NGX_CMD_OPEN_CHANNEL 命令,就将随命令一中的fd 填入命令中slot进程的channel[0]
+     * master向work进程发送命令使用channel[0]
+     */
+    ngx_socket_t        channel[2];                       
 
     ngx_spawn_proc_pt   proc;                             //进程主循环函数
     void               *data;                             //proc的参数

@@ -428,7 +428,7 @@ extern ngx_os_io_t  ngx_io;
 
 typedef struct {
     ngx_uint_t    connections;
-    ngx_uint_t    use;
+    ngx_uint_t    use;                      /* 当前使用的事件模块子模块的索引*/
 
     ngx_flag_t    multi_accept;
     ngx_flag_t    accept_mutex;

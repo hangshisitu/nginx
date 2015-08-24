@@ -586,7 +586,9 @@ ngx_timer_signal_handler(int signo)
 
 #endif
 
-
+/*
+ * 
+ */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {

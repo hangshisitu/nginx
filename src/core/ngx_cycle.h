@@ -122,10 +122,10 @@ typedef struct {
      ngx_int_t                rlimit_nofile;
      off_t                    rlimit_core;
 
-     int                      priority;
+     int                      priority;                 /* work进程优先级 */
 
-     ngx_uint_t               cpu_affinity_n;
-     uint64_t                *cpu_affinity;
+     ngx_uint_t               cpu_affinity_n;           /* cpu_affinity中元素个数 */
+     uint64_t                *cpu_affinity;             /* cpu 与 work进程的映射 */
 
      char                    *username;
      ngx_uid_t                user;

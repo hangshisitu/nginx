@@ -196,6 +196,7 @@ struct ngx_module_s {
     /* 初始化完所有模块后调用，在ngx_int_cycle函数（ngx_cycle.c）中 */
     ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
 
+    /* 工作进程初始化的时候调用该函数初始化该模块*/
     ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
     ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
     void                (*exit_thread)(ngx_cycle_t *cycle);

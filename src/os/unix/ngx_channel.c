@@ -195,7 +195,9 @@ ngx_read_channel(ngx_socket_t s, ngx_channel_t *ch, size_t size, ngx_log_t *log)
     return n;
 }
 
-
+/*
+ * 注册进程间通信fd上的事件
+ */
 ngx_int_t
 ngx_add_channel_event(ngx_cycle_t *cycle, ngx_fd_t fd, ngx_int_t event,
     ngx_event_handler_pt handler)
@@ -240,7 +242,9 @@ ngx_add_channel_event(ngx_cycle_t *cycle, ngx_fd_t fd, ngx_int_t event,
     return NGX_OK;
 }
 
-
+/*
+ * 关闭套接字对
+ */
 void
 ngx_close_channel(ngx_fd_t *fd, ngx_log_t *log)
 {

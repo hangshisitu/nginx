@@ -750,6 +750,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
     ngx_process = NGX_PROCESS_WORKER;
     ngx_worker = worker;
 
+    /* 工作进程初始化*/
     ngx_worker_process_init(cycle, worker);
 
     ngx_setproctitle("worker process");
@@ -769,7 +770,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
                     c[i].read->handler(c[i].read);
                 }
             }
-
+            /* 取消定时器事件 */
             ngx_event_cancel_timers();
 
             if (ngx_event_timer_rbtree.root == ngx_event_timer_rbtree.sentinel)
@@ -854,6 +855,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    /* 设置core dump 文件大小 */
     if (ccf->rlimit_core != NGX_CONF_UNSET) {
         rlmt.rlim_cur = (rlim_t) ccf->rlimit_core;
         rlmt.rlim_max = (rlim_t) ccf->rlimit_core;
@@ -865,6 +867,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    /* 设置进程有效组ID */
     if (geteuid() == 0) {
         if (setgid(ccf->group) == -1) {
             ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_errno,
@@ -879,6 +882,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
                           ccf->username, ccf->group);
         }
 
+        /* 设置进程有效用户ID */
         if (setuid(ccf->user) == -1) {
             ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_errno,
                           "setuid(%d) failed", ccf->user);
@@ -887,6 +891,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    /* 设置work进程有CPU亲缘 */
     if (worker >= 0) {
         cpu_affinity = ngx_get_cpu_affinity(worker);
 
@@ -906,6 +911,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
 
 #endif
 
+    /* 改变工作目录 */
     if (ccf->working_directory.len) {
         if (chdir((char *) ccf->working_directory.data) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -956,12 +962,13 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
             continue;
         }
 
+        /* 关闭其他work进程的channel[1],master进程会把其他work进程的channel[0]发送过来填入chananel[1] */
         if (close(ngx_processes[n].channel[1]) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "close() channel failed");
         }
     }
-
+    /* 关闭当前进程的channel[0] */
     if (close(ngx_processes[ngx_process_slot].channel[0]) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       "close() channel failed");
@@ -970,7 +977,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
 #if 0
     ngx_last_process = 0;
 #endif
-
+    /* 注册channel[1]上的读事件 */
     if (ngx_add_channel_event(cycle, ngx_channel, NGX_READ_EVENT,
                               ngx_channel_handler)
         == NGX_ERROR)
@@ -980,7 +987,9 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     }
 }
 
-
+/*
+ * 工作进程退出清理工作
+ */
 static void
 ngx_worker_process_exit(ngx_cycle_t *cycle)
 {
@@ -1041,7 +1050,9 @@ ngx_worker_process_exit(ngx_cycle_t *cycle)
     exit(0);
 }
 
-
+/*
+ * 进程间通信事件(读事件)处理函数
+ */
 static void
 ngx_channel_handler(ngx_event_t *ev)
 {
