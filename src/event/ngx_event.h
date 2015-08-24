@@ -428,14 +428,14 @@ extern ngx_os_io_t  ngx_io;
 
 typedef struct {
     ngx_uint_t    connections;
-    ngx_uint_t    use;                      /* 当前使用的事件模块子模块的索引*/
+    ngx_uint_t    use;                      /* 当前使用的事件子模块在事件模块配置数组中的索引*/
 
-    ngx_flag_t    multi_accept;
-    ngx_flag_t    accept_mutex;
+    ngx_flag_t    multi_accept;             /* 标记work进程同一时间只能accept一个连接*/
+    ngx_flag_t    accept_mutex;             /* 是否关闭惊群 */
 
-    ngx_msec_t    accept_mutex_delay;
+    ngx_msec_t    accept_mutex_delay;       /* 关闭惊群时，work进程延时accept_mutex_delay后，再参与下一次连接锁的竞争 */
 
-    u_char       *name;
+    u_char       *name;                     /* 当前使用的事件子模块的模块名 */
 
 #if (NGX_DEBUG)
     ngx_array_t   debug_connection;

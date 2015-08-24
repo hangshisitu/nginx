@@ -1003,7 +1003,9 @@ ngx_event_connections(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 解析当前使用的是哪个事件子模块 select,epoll,kqueue等。
+ */
 static char *
 ngx_event_use(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
