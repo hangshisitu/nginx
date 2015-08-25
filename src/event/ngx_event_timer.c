@@ -10,8 +10,8 @@
 #include <ngx_event.h>
 
 
-ngx_rbtree_t              ngx_event_timer_rbtree;
-static ngx_rbtree_node_t  ngx_event_timer_sentinel;
+ngx_rbtree_t              ngx_event_timer_rbtree;        /* 定时事件红黑树 */
+static ngx_rbtree_node_t  ngx_event_timer_sentinel;      /* 哨兵节点 */
 
 /*
  * the event timer rbtree may contain the duplicate keys, however,
@@ -19,6 +19,9 @@ static ngx_rbtree_node_t  ngx_event_timer_sentinel;
  * a minimum timer value only
  */
 
+/*
+ * 定时器红黑树初始化
+ */
 ngx_int_t
 ngx_event_timer_init(ngx_log_t *log)
 {
@@ -28,7 +31,9 @@ ngx_event_timer_init(ngx_log_t *log)
     return NGX_OK;
 }
 
-
+/*
+ * 查询还要多少毫秒下一次定时到期
+ */
 ngx_msec_t
 ngx_event_find_timer(void)
 {
@@ -49,7 +54,9 @@ ngx_event_find_timer(void)
     return (ngx_msec_t) (timer > 0 ? timer : 0);
 }
 
-
+/*
+ * 处理到期的定时事件
+ */
 void
 ngx_event_expire_timers(void)
 {
@@ -73,6 +80,7 @@ ngx_event_expire_timers(void)
             return;
         }
 
+        /* 到期的定时事件从红黑树中删除 */
         ev = (ngx_event_t *) ((char *) node - offsetof(ngx_event_t, timer));
 
         ngx_log_debug2(NGX_LOG_DEBUG_EVENT, ev->log, 0,
@@ -95,7 +103,9 @@ ngx_event_expire_timers(void)
     }
 }
 
-
+/*
+ * 取消即将过期的定时器
+ */
 void
 ngx_event_cancel_timers(void)
 {

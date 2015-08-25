@@ -312,6 +312,7 @@ failed:
 #endif
 
 /*
+ * 在ngx_event_core_module的init_process中会被调用
  * 创建一个epoll句柄ep，指定在其上的监控套接字数量为每个worker最
  * 大连接数的一半，并分配足够的epoll_event结构数组event_list用于
  * 与内核间传递事件，数量nevents可以配置文件指定，默认为512

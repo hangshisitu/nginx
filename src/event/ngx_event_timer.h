@@ -27,7 +27,9 @@ void ngx_event_cancel_timers(void);
 
 extern ngx_rbtree_t  ngx_event_timer_rbtree;
 
-
+/*
+ * 删除定时器
+ */
 static ngx_inline void
 ngx_event_del_timer(ngx_event_t *ev)
 {
@@ -46,7 +48,9 @@ ngx_event_del_timer(ngx_event_t *ev)
     ev->timer_set = 0;
 }
 
-
+/*
+ * 添加定时器
+ */
 static ngx_inline void
 ngx_event_add_timer(ngx_event_t *ev, ngx_msec_t timer)
 {

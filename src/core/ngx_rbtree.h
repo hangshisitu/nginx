@@ -2,6 +2,7 @@
 /*
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
+ * 红黑树
  */
 
 
@@ -34,13 +35,14 @@ typedef struct ngx_rbtree_s  ngx_rbtree_t;
 typedef void (*ngx_rbtree_insert_pt) (ngx_rbtree_node_t *root,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel);
 
+/* 红黑树 */
 struct ngx_rbtree_s {
-    ngx_rbtree_node_t     *root;
-    ngx_rbtree_node_t     *sentinel;
-    ngx_rbtree_insert_pt   insert;
+    ngx_rbtree_node_t     *root;        /* 根节点指针 */
+    ngx_rbtree_node_t     *sentinel;    /* 哨兵节点指针 */
+    ngx_rbtree_insert_pt   insert;      /* 插入节点的方法 */
 };
 
-
+/* 红黑树初始化 */
 #define ngx_rbtree_init(tree, s, i)                                           \
     ngx_rbtree_sentinel_init(s);                                              \
     (tree)->root = s;                                                         \

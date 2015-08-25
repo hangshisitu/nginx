@@ -11,7 +11,7 @@
 
 static ngx_int_t ngx_test_full_name(ngx_str_t *name);
 
-
+/* 生成临时文件目录使用的数字 */
 static ngx_atomic_t   temp_number = 0;
 ngx_atomic_t         *ngx_temp_number = &temp_number;
 ngx_atomic_int_t      ngx_random_number = 123456;

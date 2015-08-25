@@ -48,7 +48,7 @@ static ngx_atomic_t   connection_counter = 1;
 ngx_atomic_t         *ngx_connection_counter = &connection_counter;
 
 
-ngx_atomic_t         *ngx_accept_mutex_ptr;
+ngx_atomic_t         *ngx_accept_mutex_ptr;           /* ngx_accept_mutex在共享中的地址 */
 ngx_shmtx_t           ngx_accept_mutex;               /* 惊群控制锁 */
 ngx_uint_t            ngx_use_accept_mutex;           /* 是否关闭惊群 */
 ngx_uint_t            ngx_accept_events;
@@ -271,6 +271,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         ngx_shmtx_unlock(&ngx_accept_mutex);
     }
 
+    /* 处理定时事件 */
     if (delta) {
         ngx_event_expire_timers();
     }
@@ -440,7 +441,9 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 在 ngx_init_cycle 中调用
+ */
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
 {
@@ -526,6 +529,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     shm.name.data = (u_char *) "nginx_shared_zone";
     shm.log = cycle->log;
 
+    /* 创建共享内存 */
     if (ngx_shm_alloc(&shm) != NGX_OK) {
         return NGX_ERROR;
     }
@@ -535,6 +539,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_accept_mutex_ptr = (ngx_atomic_t *) shared;
     ngx_accept_mutex.spin = (ngx_uint_t) -1;
 
+    /* 创建进程同步锁 */
     if (ngx_shmtx_create(&ngx_accept_mutex, (ngx_shmtx_sh_t *) shared,
                          cycle->lock_file.data)
         != NGX_OK)
@@ -542,6 +547,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    /* 连接计数保存在共享内存中偏移为cl的位置 */
     ngx_connection_counter = (ngx_atomic_t *) (shared + 1 * cl);
 
     (void) ngx_atomic_cmp_set(ngx_connection_counter, 0, 1);
@@ -549,7 +555,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "counter: %p, %d",
                    ngx_connection_counter, *ngx_connection_counter);
-
+    
     ngx_temp_number = (ngx_atomic_t *) (shared + 2 * cl);
 
     tp = ngx_timeofday();
@@ -587,7 +593,9 @@ ngx_timer_signal_handler(int signo)
 #endif
 
 /*
- * 
+ * work进程初始化的过程中被调用
+ * 初始化事件队列，定时器红黑树
+ * 确定使用的事件子模块并初始化
  */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
@@ -630,6 +638,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    /* 查找当前使用的事件子模块并初始化该子模块（epoll,selet,kqueue...） */
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_EVENT_MODULE) {
             continue;
@@ -651,6 +660,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
+    /* 设置定时器 */
     if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
         struct sigaction  sa;
         struct itimerval  itv;
@@ -695,7 +705,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     }
 
 #endif
-
+    /* 分配连接空间 */
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
@@ -704,6 +714,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
     c = cycle->connections;
 
+    /* 分配读事件空间 */
     cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
                                    cycle->log);
     if (cycle->read_events == NULL) {
@@ -716,6 +727,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         rev[i].instance = 1;
     }
 
+    /* 分配写事件空间 */
     cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
                                     cycle->log);
     if (cycle->write_events == NULL) {
@@ -730,6 +742,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     i = cycle->connection_n;
     next = NULL;
 
+    /* cycle->connetions 数组组织成链表 */
     do {
         i--;
 
@@ -977,7 +990,10 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 解析 worker_connections 配置指令
+ * work进程处理的连接数
+ */
 static char *
 ngx_event_connections(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {

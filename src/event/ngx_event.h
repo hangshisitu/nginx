@@ -56,8 +56,8 @@ struct ngx_event_s {
     unsigned         eof:1;
     unsigned         error:1;
 
-    unsigned         timedout:1;
-    unsigned         timer_set:1;
+    unsigned         timedout : 1;           /* 标记定时器是否以过期 */
+    unsigned         timer_set : 1;          /* 标记是否设置了定时器 */
 
     unsigned         delayed:1;
 
@@ -74,7 +74,7 @@ struct ngx_event_s {
     unsigned         channel:1;
     unsigned         resolver:1;
 
-    unsigned         cancelable:1;
+    unsigned         cancelable:1;             /* 定时事件能否取消 */
 
 #if (NGX_WIN32)
     /* setsockopt(SO_UPDATE_ACCEPT_CONTEXT) was successful */
@@ -119,7 +119,7 @@ struct ngx_event_s {
 
     ngx_log_t       *log;
 
-    ngx_rbtree_node_t   timer;
+    ngx_rbtree_node_t   timer;                    /* 插入红黑树的节点 */
 
     /* the posted queue */
     ngx_queue_t      queue;                       /* 入队列的节点 */
