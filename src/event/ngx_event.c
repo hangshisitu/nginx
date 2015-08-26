@@ -595,7 +595,8 @@ ngx_timer_signal_handler(int signo)
 /*
  * work进程初始化的过程中被调用
  * 初始化事件队列，定时器红黑树
- * 确定使用的事件子模块并初始化
+ * 确定当前使用的事件子模块并初始化
+ * 并对cycle中的监听连接的读事件进行监听
  */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)

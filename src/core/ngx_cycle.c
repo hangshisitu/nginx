@@ -496,14 +496,15 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
 
     /* handle the listening sockets */
-
+    /* 执行热代码替换时:old_cycle中监听地址是从环境变量继承过来的 */
+    /* reconfig时:old_cycle中监听地址是从旧的配置文件解析得到的 */
     if (old_cycle->listening.nelts) {
         ls = old_cycle->listening.elts;
         for (i = 0; i < old_cycle->listening.nelts; i++) {
             ls[i].remain = 0;
         }
 
-        nls = cycle->listening.elts;
+        nls = cycle->listening.elts;     /* 从配置文件解析得到的监听地址 */
         for (n = 0; n < cycle->listening.nelts; n++) {
 
             for (i = 0; i < old_cycle->listening.nelts; i++) {
@@ -514,7 +515,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                 if (ls[i].remain) {
                     continue;
                 }
-
+                /* 监听地址相同 */
                 if (ngx_cmp_sockaddr(nls[n].sockaddr, nls[n].socklen,
                                      ls[i].sockaddr, ls[i].socklen, 1)
                     == NGX_OK)

@@ -104,7 +104,7 @@ ngx_event_expire_timers(void)
 }
 
 /*
- * 取消即将过期的定时器
+ * 取消所有定时器
  */
 void
 ngx_event_cancel_timers(void)

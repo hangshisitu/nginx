@@ -48,7 +48,7 @@ struct ngx_listening_s {
     /* should be here because of the deferred accept */
     ngx_msec_t          post_accept_timeout;       /* accept的超时时间 */
 
-    ngx_listening_t    *previous;                  /* 前一个ngx_listening_t结构，维护一个链表 */
+    ngx_listening_t    *previous;                  /* 维护一个链表 执行热代码替换和reconfig时previous指向old_cycle中的相同监听地址的ngx_listening_t对象 */
     ngx_connection_t   *connection;                /* 监听也是一个连接，要分配给监听一个连接资源 */
 
     ngx_uint_t          worker;                    /* 计数 */
@@ -171,7 +171,7 @@ struct ngx_connection_s {
     unsigned            error:1;
     unsigned            destroyed:1;
 
-    unsigned            idle:1;
+    unsigned            idle : 1;         /* 空闲连接 */
     unsigned            reusable:1;
     unsigned            close:1;
 

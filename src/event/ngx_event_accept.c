@@ -16,6 +16,7 @@ static void ngx_close_accepted_connection(ngx_connection_t *c);
 
 /*
  * 监听连接的可读事件处理函数
+ * 当有新的连接到达时，该函数被调用
  */
 void
 ngx_event_accept(ngx_event_t *ev)
