@@ -168,10 +168,10 @@ typedef struct {
     ngx_uint_t                        offset;
 } ngx_http_header_out_t;
 
-
+/* http请求的头部解析后保存在该结构体*/
 typedef struct {
-    ngx_list_t                        headers;
-
+    ngx_list_t                        headers;               /* 头部所有元素组成的链表，元素为 ngx_table_elt_t 结构 */
+    /* 指向headers中的相应元素 */
     ngx_table_elt_t                  *host;
     ngx_table_elt_t                  *connection;
     ngx_table_elt_t                  *if_modified_since;
@@ -225,11 +225,14 @@ typedef struct {
     ngx_array_t                       cookies;
 
     ngx_str_t                         server;
-    off_t                             content_length_n;
+    off_t                             content_length_n;         /* 计算出的包体大小 */
     time_t                            keep_alive_n;
 
+    /* http连接类型，它的取值范围是0，NGX_HTTP_CONNECTION_CLOSE,NGX_HTTP_CONNECTION_KEEP_ALIVE */
     unsigned                          connection_type:2;
     unsigned                          chunked:1;
+
+    /* 根据浏览器传过来的useragent，判断浏览器类型 */
     unsigned                          msie:1;
     unsigned                          msie6:1;
     unsigned                          opera:1;
@@ -241,10 +244,10 @@ typedef struct {
 
 
 typedef struct {
-    ngx_list_t                        headers;
+    ngx_list_t                        headers;              /* 头部元素链表 */
 
-    ngx_uint_t                        status;
-    ngx_str_t                         status_line;
+    ngx_uint_t                        status;               /* 响应的状态码 */
+    ngx_str_t                         status_line;          /* 状态行 */
 
     ngx_table_elt_t                  *server;
     ngx_table_elt_t                  *date;
@@ -262,14 +265,14 @@ typedef struct {
     ngx_str_t                        *override_charset;
 
     size_t                            content_type_len;
-    ngx_str_t                         content_type;
+    ngx_str_t                         content_type;           /* mime.type */
     ngx_str_t                         charset;
     u_char                           *content_type_lowcase;
     ngx_uint_t                        content_type_hash;
 
     ngx_array_t                       cache_control;
 
-    off_t                             content_length_n;
+    off_t                             content_length_n;      /* 应答包的*/
     time_t                            date_time;
     time_t                            last_modified_time;
 } ngx_http_headers_out_t;
@@ -355,7 +358,7 @@ struct ngx_http_posted_request_s {
 typedef ngx_int_t (*ngx_http_handler_pt)(ngx_http_request_t *r);
 typedef void (*ngx_http_event_handler_pt)(ngx_http_request_t *r);
 
-
+/* http请求 */
 struct ngx_http_request_s {
     uint32_t                          signature;         /* "HTTP" */
 
@@ -380,8 +383,8 @@ struct ngx_http_request_s {
     ngx_pool_t                       *pool;
     ngx_buf_t                        *header_in;
 
-    ngx_http_headers_in_t             headers_in;
-    ngx_http_headers_out_t            headers_out;
+    ngx_http_headers_in_t             headers_in;        /* 请求头部 */
+    ngx_http_headers_out_t            headers_out;       /* 应答头部 */
 
     ngx_http_request_body_t          *request_body;
 

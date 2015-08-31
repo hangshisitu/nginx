@@ -22,17 +22,17 @@ typedef struct {
 
 
 typedef struct {
-    ngx_int_t   (*preconfiguration)(ngx_conf_t *cf);
-    ngx_int_t   (*postconfiguration)(ngx_conf_t *cf);
+    ngx_int_t   (*preconfiguration)(ngx_conf_t *cf);            /* 解析配置文件前调用 */
+    ngx_int_t   (*postconfiguration)(ngx_conf_t *cf);           /* 配置文件解析完成后调用 */
 
-    void       *(*create_main_conf)(ngx_conf_t *cf);
-    char       *(*init_main_conf)(ngx_conf_t *cf, void *conf);
+    void       *(*create_main_conf)(ngx_conf_t *cf);            /* 创建直隶于http块的配置项结构体 */
+    char       *(*init_main_conf)(ngx_conf_t *cf, void *conf);  /* 初始化直隶与http块的配置项结构体 */
 
-    void       *(*create_srv_conf)(ngx_conf_t *cf);
-    char       *(*merge_srv_conf)(ngx_conf_t *cf, void *prev, void *conf);
+    void       *(*create_srv_conf)(ngx_conf_t *cf);             /* 创建直隶于server块的配置项结构体 */
+    char       *(*merge_srv_conf)(ngx_conf_t *cf, void *prev, void *conf);    /* 合并 http和server下的同名配置项 */
 
-    void       *(*create_loc_conf)(ngx_conf_t *cf);
-    char       *(*merge_loc_conf)(ngx_conf_t *cf, void *prev, void *conf);
+    void       *(*create_loc_conf)(ngx_conf_t *cf);                           /* 创建直隶于location 块的配置项结构体 */
+    char       *(*merge_loc_conf)(ngx_conf_t *cf, void *prev, void *conf);    /* 合并 server 和location块的同名配置项 */
 } ngx_http_module_t;
 
 

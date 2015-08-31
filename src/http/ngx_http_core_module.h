@@ -116,24 +116,28 @@ typedef struct {
     u_char                     addr[NGX_SOCKADDR_STRLEN + 1];
 } ngx_http_listen_opt_t;
 
-
+/* 定义处理http请求的11个阶段 */
 typedef enum {
-    NGX_HTTP_POST_READ_PHASE = 0,
+    NGX_HTTP_POST_READ_PHASE = 0,       /* 接收到完整的http头部后处理的http阶段 */
 
-    NGX_HTTP_SERVER_REWRITE_PHASE,
+    NGX_HTTP_SERVER_REWRITE_PHASE,      /* 在还没有查询到URI匹配的location前，这时的rewrite重写URL也作为一个独立的http阶段 */
 
-    NGX_HTTP_FIND_CONFIG_PHASE,
-    NGX_HTTP_REWRITE_PHASE,
-    NGX_HTTP_POST_REWRITE_PHASE,
+    NGX_HTTP_FIND_CONFIG_PHASE,         /* 根据URI 寻找匹配的location,这个阶段通常由ngx_http_core_module模块实现，不建议其他HTTP模块重新定义这一阶段的行为 */
+    NGX_HTTP_REWRITE_PHASE,             /* 在NGX_HTTP_FIND_CONFIG_PHASE阶段之后重写 URL的意义y与NGX_HTTP_SERVER_REWRITE_PHASE阶段是不同，因为这两者会导致查找到不同的location块 */
+    NGX_HTTP_POST_REWRITE_PHASE,        /* 这一阶段是用于在rewrite重写URL后跳转到NGX_HTTP_FIND_CONFIG_PHASE阶段，查找与新的URI匹配的location。这一阶段无法由第三方模块处理，仅由ngx_http_core_module处理 */
 
-    NGX_HTTP_PREACCESS_PHASE,
+    NGX_HTTP_PREACCESS_PHASE,           /* 处理NGX_HTTP_ACCESS_PHASE阶段前，HTTP模块可以介入的处理阶段 */
 
-    NGX_HTTP_ACCESS_PHASE,
+    NGX_HTTP_ACCESS_PHASE,              /* 这个阶段用于让HTTP判断是否允许这个请求访问nginx服务 */
+    /* 当NGX_HTTP_ACCESS_PHASE阶段中HTTP模块的handler处理方法返回不允许访问的错误码时，这个阶段将负责构造拒绝服务的用户响应。
+       所以这个阶段实际用于给NGX_HTTP_ACCESS_PHASE阶段收尾 */
     NGX_HTTP_POST_ACCESS_PHASE,
-
+    /* 这个阶段是为了try_files配置项而设立的。当http访问静态文件资源时，try_files配置项可以使这个请求顺序的访问多个
+       静态文件资源，如果某一次访问失败，则继续访问try_files中指定的下一个静态资源。这个功能完全是在NGX_HTTP_TRY_FILES_PHASE阶段实现的 */
     NGX_HTTP_TRY_FILES_PHASE,
+    /* 处理HTTP请求内容的阶段，这是大部分HTTP模块最喜欢介入的阶段 */
     NGX_HTTP_CONTENT_PHASE,
-
+    /* 处理完全请求后记录日志的阶段。*/
     NGX_HTTP_LOG_PHASE
 } ngx_http_phases;
 
