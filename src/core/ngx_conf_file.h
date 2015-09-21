@@ -47,7 +47,7 @@
 #define NGX_CONF_2MORE       0x00001000  /* 配置指令有两个以上的参数 */
 #define NGX_CONF_MULTI       0x00000000  /* compatibility */
 
-#define NGX_DIRECT_CONF      0x00010000  /* 直接配置指令 不是block指令也不在{}语句中.即上下文为main的非block指令 */
+#define NGX_DIRECT_CONF      0x00010000  /* 指明了处理配置块时获取当前配置块的方法。*/
 
 #define NGX_MAIN_CONF        0x01000000  /* 该类型的配置指令上下文为main */
 #define NGX_ANY_CONF         0x0F000000
@@ -169,7 +169,7 @@ struct ngx_module_s {
     * 而http module的ctx是ngx_http_moduel_t类型，event module的ctx是ngx_event_module_t类型等等。
     * 相应类型的模块由分开处理的，比如所有的http module由ngx_http_module解析处理，而所有的event module
     * 由ngx_events_module解析处理。
-    * 上下文件结构通常提供了生成和初始化模块配置信息结构的方法
+    * 模块上下文件结构通常提供了生成和初始化模块配置上下文结构的方法
     */
     void                 *ctx;
 

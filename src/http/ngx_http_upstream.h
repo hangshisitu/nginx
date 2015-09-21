@@ -301,23 +301,23 @@ struct ngx_http_upstream_s {
 
     ngx_event_pipe_t                *pipe;
 
-    ngx_chain_t                     *request_bufs;
+    ngx_chain_t                     *request_bufs;          /* 发送给上游服务器的请求，在create_request中填充 */
 
     ngx_output_chain_ctx_t           output;
     ngx_chain_writer_ctx_t           writer;
 
-    ngx_http_upstream_conf_t        *conf;
+    ngx_http_upstream_conf_t        *conf;                  /* 访问时的所有限制性参数 */
 #if (NGX_HTTP_CACHE)
     ngx_array_t                     *caches;
 #endif
 
     ngx_http_upstream_headers_in_t   headers_in;
 
-    ngx_http_upstream_resolved_t    *resolved;
+    ngx_http_upstream_resolved_t    *resolved;              /* 直接指定上游服务器地址 */
 
     ngx_buf_t                        from_client;
 
-    ngx_buf_t                        buffer;
+    ngx_buf_t                        buffer;                /* 存储上游服务器的返回的响应内容，该成员会被复用 */
     off_t                            length;
 
     ngx_chain_t                     *out_bufs;
@@ -331,7 +331,7 @@ struct ngx_http_upstream_s {
 #if (NGX_HTTP_CACHE)
     ngx_int_t                      (*create_key)(ngx_http_request_t *r);
 #endif
-    ngx_int_t                      (*create_request)(ngx_http_request_t *r);
+    ngx_int_t                      (*create_request)(ngx_http_request_t *r);        /* 构造发往上游服务器的请求 */
     ngx_int_t                      (*reinit_request)(ngx_http_request_t *r);
     ngx_int_t                      (*process_header)(ngx_http_request_t *r);
     void                           (*abort_request)(ngx_http_request_t *r);

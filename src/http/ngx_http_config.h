@@ -13,22 +13,27 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-
+/**
+ * NGX_HTTP_MODULE类型模块的配置上下文结构体
+ */
 typedef struct {
-    void        **main_conf;
-    void        **srv_conf;
-    void        **loc_conf;
+    void        **main_conf;        /* 指针数组，数组元素是由create_main_conf创建 */
+    void        **srv_conf;         /* 指针数组，数组元素是由create_srv_conf创建 */
+    void        **loc_conf;         /* 指针数组，数组元素是由create_loc_conf创建 */
 } ngx_http_conf_ctx_t;
 
-
+/**
+ * NGX_HTTP_MODULE类型模块的配置上下文生成器的结构
+ * 提供解析配置项时各个阶段的钩子函数
+ */
 typedef struct {
-    ngx_int_t   (*preconfiguration)(ngx_conf_t *cf);            /* 解析配置文件前调用 */
-    ngx_int_t   (*postconfiguration)(ngx_conf_t *cf);           /* 配置文件解析完成后调用 */
+    ngx_int_t   (*preconfiguration)(ngx_conf_t *cf);                          /* 解析配置文件前调用 */
+    ngx_int_t   (*postconfiguration)(ngx_conf_t *cf);                         /* 配置文件解析完成后调用 */
 
-    void       *(*create_main_conf)(ngx_conf_t *cf);            /* 创建直隶于http块的配置项结构体 */
-    char       *(*init_main_conf)(ngx_conf_t *cf, void *conf);  /* 初始化直隶与http块的配置项结构体 */
+    void       *(*create_main_conf)(ngx_conf_t *cf);                          /* 创建直隶于http块的配置项结构体 */
+    char       *(*init_main_conf)(ngx_conf_t *cf, void *conf);                /* 初始化直隶与http块的配置项结构体 */
 
-    void       *(*create_srv_conf)(ngx_conf_t *cf);             /* 创建直隶于server块的配置项结构体 */
+    void       *(*create_srv_conf)(ngx_conf_t *cf);                           /* 创建直隶于server块的配置项结构体 */
     char       *(*merge_srv_conf)(ngx_conf_t *cf, void *prev, void *conf);    /* 合并 http和server下的同名配置项 */
 
     void       *(*create_loc_conf)(ngx_conf_t *cf);                           /* 创建直隶于location 块的配置项结构体 */

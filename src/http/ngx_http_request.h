@@ -364,7 +364,7 @@ struct ngx_http_request_s {
 
     ngx_connection_t                 *connection;
 
-    void                            **ctx;
+    void                            **ctx;               /* 请求上下文，每一个http模块对应一个元素 */
     void                            **main_conf;
     void                            **srv_conf;
     void                            **loc_conf;
@@ -381,7 +381,7 @@ struct ngx_http_request_s {
                                          /* of ngx_http_upstream_state_t */
 
     ngx_pool_t                       *pool;
-    ngx_buf_t                        *header_in;
+    ngx_buf_t                        *header_in;         /* 接收头部的缓冲区 */
 
     ngx_http_headers_in_t             headers_in;        /* 请求头部 */
     ngx_http_headers_out_t            headers_out;       /* 应答头部 */

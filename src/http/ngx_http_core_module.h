@@ -137,7 +137,8 @@ typedef enum {
     NGX_HTTP_TRY_FILES_PHASE,
     /* 处理HTTP请求内容的阶段，这是大部分HTTP模块最喜欢介入的阶段 */
     NGX_HTTP_CONTENT_PHASE,
-    /* 处理完全请求后记录日志的阶段。*/
+    /* 处理完请求后记录日志的阶段。例如，ngx_http_log_module 模块就在这个阶段中加入一个handler处理方法，
+       使每个HTTP请求处理完后会记录access_log日志 */
     NGX_HTTP_LOG_PHASE
 } ngx_http_phases;
 
